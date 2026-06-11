@@ -29,7 +29,7 @@ A local-first todo desktop app for Windows built with Tauri v2 and React 18. All
 ## Installation
 
 ```bash
-git clone <repo>
+git clone https://github.com/M3hTi/todo-app.git
 cd todo-app
 npm install
 ```

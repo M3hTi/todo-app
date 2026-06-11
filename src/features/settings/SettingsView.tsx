@@ -573,7 +573,7 @@ export function SettingsView() {
             <dt className="text-muted-foreground">Source</dt>
             <dd className="flex items-center gap-1 text-muted-foreground">
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              github.com/your-username/todo-app
+              github.com/M3hTi/todo-app
             </dd>
           </div>
         </dl>
