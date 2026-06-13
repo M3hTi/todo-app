@@ -8,6 +8,8 @@ import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
+import { ReminderEditor } from "@/components/tasks/ReminderEditor";
+import { buildReminder, dismissReminder, snoozeReminder, toDraft } from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -213,20 +215,41 @@ export function TaskDetail({ task }: TaskDetailProps) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="detail-reminder">Reminder</Label>
-          <Input
-            id="detail-reminder"
-            type="datetime-local"
-            value={task.reminderAt ? format(parseISO(task.reminderAt), "yyyy-MM-dd'T'HH:mm") : ""}
-            onChange={(event) =>
-              void save({
-                reminderAt: event.target.value
-                  ? new Date(event.target.value).toISOString()
-                  : null,
-                reminderShownAt: null,
-              })
+          <Label>Reminder</Label>
+          <ReminderEditor
+            value={toDraft(task.reminder)}
+            dueDate={task.dueDate}
+            dueTime={task.dueTime}
+            onChange={(draft) =>
+              void save({ reminder: buildReminder(draft, task.dueDate, task.dueTime) ?? null })
             }
           />
+          {task.reminder && !task.reminder.dismissedAt && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  task.reminder &&
+                  void save({ reminder: snoozeReminder(task.reminder, new Date().toISOString()) })
+                }
+              >
+                Snooze 15m
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  task.reminder &&
+                  void save({ reminder: dismissReminder(task.reminder, new Date().toISOString()) })
+                }
+              >
+                Dismiss
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">
