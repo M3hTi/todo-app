@@ -11,8 +11,6 @@ interface TaskRow {
   due_date: string | null;
   due_time: string | null;
   category_id: string | null;
-  reminder_at: string | null;
-  reminder_shown_at: string | null;
   reminder_json: string | null;
   recurring_rule_json: string | null;
   sort_order: number;
@@ -39,7 +37,7 @@ interface TaskTagRow {
 
 const TASK_COLUMNS =
   "id, title, description, status, priority, due_date, due_time, category_id, " +
-  "reminder_at, reminder_shown_at, reminder_json, recurring_rule_json, sort_order, created_at, " +
+  "reminder_json, recurring_rule_json, sort_order, created_at, " +
   "updated_at, completed_at, notes";
 
 /** Fields the caller provides when creating a task; the rest are generated. */
@@ -52,7 +50,6 @@ export type CreateTaskInput = {
   dueTime?: string;
   categoryId?: string;
   tags?: string[];
-  reminderAt?: string;
   reminder?: import("@/types").Reminder;
   recurringRule?: RecurringRule;
   notes?: string;
@@ -68,8 +65,6 @@ export type UpdateTaskInput = {
   dueTime?: string | null;
   categoryId?: string | null;
   tags?: string[];
-  reminderAt?: string | null;
-  reminderShownAt?: string | null;
   reminder?: import("@/types").Reminder | null;
   recurringRule?: RecurringRule | null;
   sortOrder?: number;
@@ -107,8 +102,6 @@ function mapTask(row: TaskRow, subtasks: Subtask[], tags: string[]): Task {
     categoryId: row.category_id ?? undefined,
     tags,
     subtasks,
-    reminderAt: row.reminder_at ?? undefined,
-    reminderShownAt: row.reminder_shown_at ?? undefined,
     reminder: parseReminder(row.reminder_json),
     recurringRule: parseRule(row.recurring_rule_json),
     sortOrder: row.sort_order,
@@ -195,7 +188,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
 
     await db.execute(
       `INSERT INTO tasks (${TASK_COLUMNS})
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         id,
         input.title,
@@ -205,8 +198,6 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
         input.dueDate ?? null,
         input.dueTime ?? null,
         input.categoryId ?? null,
-        input.reminderAt ?? null,
-        null,
         input.reminder ? JSON.stringify(input.reminder) : null,
         input.recurringRule ? JSON.stringify(input.recurringRule) : null,
         next,
@@ -233,8 +224,6 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
       categoryId: input.categoryId,
       tags: tags.map((tag) => tag.name),
       subtasks: [],
-      reminderAt: input.reminderAt,
-      reminderShownAt: undefined,
       reminder: input.reminder,
       recurringRule: input.recurringRule,
       sortOrder: next,
@@ -265,8 +254,6 @@ export async function updateTask(id: string, patch: UpdateTaskInput): Promise<Ta
     if (patch.dueDate !== undefined) set("due_date", patch.dueDate);
     if (patch.dueTime !== undefined) set("due_time", patch.dueTime);
     if (patch.categoryId !== undefined) set("category_id", patch.categoryId);
-    if (patch.reminderAt !== undefined) set("reminder_at", patch.reminderAt);
-    if (patch.reminderShownAt !== undefined) set("reminder_shown_at", patch.reminderShownAt);
     if (patch.reminder !== undefined) {
       set("reminder_json", patch.reminder ? JSON.stringify(patch.reminder) : null);
     }

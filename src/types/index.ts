@@ -44,8 +44,6 @@ export interface Task {
   categoryId?: string;
   tags: string[];             // tag names, resolved on load
   subtasks: Subtask[];
-  reminderAt?: string;        // DEPRECATED — removed in reminder-rework Task 8
-  reminderShownAt?: string;   // DEPRECATED — removed in reminder-rework Task 8
   reminder?: Reminder;
   recurringRule?: RecurringRule;
   sortOrder: number;
