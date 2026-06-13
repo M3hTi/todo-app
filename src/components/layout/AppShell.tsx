@@ -4,6 +4,7 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useSelectedTask } from "@/hooks/useTasks";
 import { useReminders } from "@/hooks/useReminders";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useTray } from "@/hooks/useTray";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { TaskDetail } from "@/components/tasks/TaskDetail";
@@ -23,6 +24,7 @@ export function AppShell() {
   // Mounted once after startup data is loaded.
   useReminders();
   useKeyboardShortcuts();
+  useTray();
 
   return (
     <div className="flex h-screen overflow-hidden">
