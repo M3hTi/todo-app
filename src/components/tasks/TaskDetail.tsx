@@ -9,7 +9,7 @@ import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
 import { ReminderEditor } from "@/components/tasks/ReminderEditor";
-import { buildReminder, dismissReminder, snoozeReminder, toDraft } from "@/lib/reminder";
+import { buildReminder, dismissReminder, reanchorReminder, snoozeReminder, toDraft } from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -194,12 +194,17 @@ export function TaskDetail({ task }: TaskDetailProps) {
               id="detail-due-date"
               type="date"
               value={task.dueDate ?? ""}
-              onChange={(event) =>
-                void save({
-                  dueDate: event.target.value || null,
-                  ...(event.target.value ? {} : { dueTime: null, reminderAt: null }),
-                })
-              }
+              onChange={(event) => {
+                const newDue = event.target.value || null;
+                const patch: Parameters<typeof updateTask>[1] = { dueDate: newDue };
+                if (!newDue) {
+                  patch.dueTime = null;
+                  if (task.reminder?.mode === "relative") patch.reminder = null;
+                } else if (task.reminder?.mode === "relative") {
+                  patch.reminder = reanchorReminder(task.reminder, newDue, task.dueTime);
+                }
+                void save(patch);
+              }}
             />
           </div>
           <div className="space-y-1.5">
@@ -209,7 +214,14 @@ export function TaskDetail({ task }: TaskDetailProps) {
               type="time"
               value={task.dueTime ?? ""}
               disabled={!task.dueDate}
-              onChange={(event) => void save({ dueTime: event.target.value || null })}
+              onChange={(event) => {
+                const newTime = event.target.value || null;
+                const patch: Parameters<typeof updateTask>[1] = { dueTime: newTime };
+                if (task.dueDate && task.reminder?.mode === "relative") {
+                  patch.reminder = reanchorReminder(task.reminder, task.dueDate, newTime ?? undefined);
+                }
+                void save(patch);
+              }}
             />
           </div>
         </div>
