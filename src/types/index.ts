@@ -2,6 +2,7 @@ export type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Cancelle
 export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
 export type Theme = 'Light' | 'Dark' | 'System';
+export type CloseBehavior = 'ask' | 'tray' | 'quit';
 
 export interface RecurringRule {
   frequency: RecurrenceFrequency;
@@ -62,4 +63,6 @@ export interface AppSettings {
   defaultPriority: TaskPriority;
   defaultReminderMinutesBefore: number;   // 0 = disabled
   notificationsEnabled: boolean;
+  closeBehavior: CloseBehavior;
+  launchOnStartup: boolean;
 }

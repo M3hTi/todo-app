@@ -106,6 +106,8 @@ const DEFAULT_SETTINGS: Readonly<Record<string, unknown>> = {
   defaultPriority: "Medium",
   defaultReminderMinutesBefore: 15,
   notificationsEnabled: true,
+  closeBehavior: "ask",
+  launchOnStartup: false,
 };
 
 let instance: Database | null = null;

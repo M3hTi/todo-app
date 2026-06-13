@@ -94,6 +94,8 @@ const settingsSchema = z.object({
   defaultPriority: z.enum(["Low", "Medium", "High", "Urgent"]),
   defaultReminderMinutesBefore: z.number(),
   notificationsEnabled: z.boolean(),
+  closeBehavior: z.enum(["ask", "tray", "quit"]).default("ask"),
+  launchOnStartup: z.boolean().default(false),
 });
 
 const exportFileSchema = z.object({
