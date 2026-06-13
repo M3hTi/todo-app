@@ -564,13 +564,14 @@ export function SettingsView() {
               </p>
             </div>
             <Select
-              value={settings.closeBehavior === "quit" ? "quit" : "tray"}
+              value={settings.closeBehavior}
               onValueChange={(value) => void updateSetting("closeBehavior", value as CloseBehavior)}
             >
               <SelectTrigger className="w-44" aria-label="When I close the window">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="ask">Ask each time</SelectItem>
                 <SelectItem value="tray">Minimize to tray</SelectItem>
                 <SelectItem value="quit">Quit the app</SelectItem>
               </SelectContent>
