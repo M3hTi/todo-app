@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { RecurrenceFrequency, RecurringRule, TaskPriority, TaskStatus } from "@/types";
 import { ReminderEditor } from "@/components/tasks/ReminderEditor";
+import { DatePicker } from "@/components/shared/DatePicker";
 import { buildReminder, NO_REMINDER_DRAFT, type ReminderDraft } from "@/lib/reminder";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
@@ -208,7 +209,12 @@ export function TaskForm() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="task-due-date">Due date</Label>
-              <Input id="task-due-date" type="date" {...register("dueDate")} />
+              <DatePicker
+                id="task-due-date"
+                ariaLabel="Due date"
+                value={dueDate || undefined}
+                onChange={(value) => setValue("dueDate", value ?? "", { shouldValidate: true })}
+              />
               {errors.dueDate && (
                 <p className="text-sm text-destructive">{errors.dueDate.message}</p>
               )}
@@ -442,14 +448,14 @@ export function RecurrenceEditor({ value, onChange }: RecurrenceEditorProps) {
 
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Until</span>
-            <Input
-              type="date"
-              className="h-8 w-40"
-              aria-label="Repeat end date"
-              value={value.endDate ?? ""}
-              onChange={(event) => {
+            <DatePicker
+              ariaLabel="Repeat end date"
+              placeholder="No end date"
+              className="h-8 w-44"
+              value={value.endDate ?? undefined}
+              onChange={(next) => {
                 const { endDate: _endDate, ...rest } = value;
-                onChange(event.target.value ? { ...rest, endDate: event.target.value } : rest);
+                onChange(next ? { ...rest, endDate: next } : rest);
               }}
             />
           </div>

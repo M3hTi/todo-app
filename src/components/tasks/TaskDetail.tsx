@@ -12,6 +12,7 @@ import { ReminderEditor } from "@/components/tasks/ReminderEditor";
 import { buildReminder, dismissReminder, reanchorReminder, snoozeReminder, toDraft } from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { DatePicker } from "@/components/shared/DatePicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -190,12 +191,12 @@ export function TaskDetail({ task }: TaskDetailProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="detail-due-date">Due date</Label>
-            <Input
+            <DatePicker
               id="detail-due-date"
-              type="date"
-              value={task.dueDate ?? ""}
-              onChange={(event) => {
-                const newDue = event.target.value || null;
+              ariaLabel="Due date"
+              value={task.dueDate}
+              onChange={(value) => {
+                const newDue = value ?? null;
                 const patch: Parameters<typeof updateTask>[1] = { dueDate: newDue };
                 if (!newDue) {
                   patch.dueTime = null;
