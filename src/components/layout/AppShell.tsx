@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { toast } from "sonner";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -5,11 +6,13 @@ import { useSelectedTask } from "@/hooks/useTasks";
 import { useReminders } from "@/hooks/useReminders";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTray } from "@/hooks/useTray";
+import { useCloseBehavior } from "@/hooks/useCloseBehavior";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { TaskDetail } from "@/components/tasks/TaskDetail";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CloseBehaviorDialog } from "@/components/layout/CloseBehaviorDialog";
 
 export function AppShell() {
   const setTaskFormOpen = useTaskStore((state) => state.setTaskFormOpen);
@@ -21,10 +24,14 @@ export function AppShell() {
   );
   const selectedTask = useSelectedTask();
 
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const openClosePrompt = useCallback(() => setClosePromptOpen(true), []);
+
   // Mounted once after startup data is loaded.
   useReminders();
   useKeyboardShortcuts();
   useTray();
+  useCloseBehavior(openClosePrompt);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -47,6 +54,8 @@ export function AppShell() {
       )}
 
       <TaskForm />
+
+      <CloseBehaviorDialog open={closePromptOpen} onOpenChange={setClosePromptOpen} />
 
       <ConfirmDialog
         open={confirmDeleteTaskId !== null}
