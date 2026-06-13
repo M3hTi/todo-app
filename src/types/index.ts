@@ -3,6 +3,17 @@ export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
 export type Theme = 'Light' | 'Dark' | 'System';
 export type CloseBehavior = 'ask' | 'tray' | 'quit';
+export type ReminderMode = 'relative' | 'absolute';
+
+export interface Reminder {
+  mode: ReminderMode;
+  minutesBefore?: number;   // relative mode: minutes before the due time
+  at?: string;              // absolute mode: ISO datetime
+  repeatMinutes?: number;   // undefined/0 = fire once; else repeat interval in minutes
+  nextFireAt: string;       // ISO datetime of the next scheduled fire
+  lastFiredAt?: string;     // ISO datetime of the most recent fire
+  dismissedAt?: string;     // ISO; set on dismiss OR when a one-shot has fired — stops future fires
+}
 
 export interface RecurringRule {
   frequency: RecurrenceFrequency;
@@ -33,8 +44,9 @@ export interface Task {
   categoryId?: string;
   tags: string[];             // tag names, resolved on load
   subtasks: Subtask[];
-  reminderAt?: string;        // ISO datetime
-  reminderShownAt?: string;
+  reminderAt?: string;        // DEPRECATED — removed in reminder-rework Task 8
+  reminderShownAt?: string;   // DEPRECATED — removed in reminder-rework Task 8
+  reminder?: Reminder;
   recurringRule?: RecurringRule;
   sortOrder: number;
   createdAt: string;
