@@ -92,6 +92,18 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_task_tags_task ON task_tags(task_id)`,
     ],
   },
+  {
+    version: 2,
+    statements: [
+      `ALTER TABLE tasks ADD COLUMN reminder_json TEXT`,
+      `UPDATE tasks
+         SET reminder_json = json_object('mode', 'absolute', 'at', reminder_at, 'nextFireAt', reminder_at)
+       WHERE reminder_at IS NOT NULL AND reminder_json IS NULL`,
+      `UPDATE tasks
+         SET reminder_json = json_set(reminder_json, '$.dismissedAt', reminder_shown_at)
+       WHERE reminder_shown_at IS NOT NULL AND reminder_json IS NOT NULL`,
+    ],
+  },
 ];
 
 const DEFAULT_CATEGORIES: ReadonlyArray<{ name: string; color: string }> = [
