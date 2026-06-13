@@ -1,3 +1,4 @@
+import { DatePicker } from "@/components/shared/DatePicker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -82,12 +83,30 @@ export function ReminderEditor({ value, dueDate, dueTime: _dueTime, onChange }: 
       )}
 
       {value.enabled && value.mode === "absolute" && (
-        <Input
-          type="datetime-local"
-          aria-label="Reminder date and time"
-          value={value.at}
-          onChange={(event) => onChange({ ...value, at: event.target.value })}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <DatePicker
+            ariaLabel="Reminder date"
+            value={value.at ? value.at.slice(0, 10) : undefined}
+            onChange={(date) =>
+              onChange({
+                ...value,
+                at: date ? `${date}T${value.at.slice(11, 16) || "09:00"}` : "",
+              })
+            }
+          />
+          <Input
+            type="time"
+            aria-label="Reminder time"
+            disabled={!value.at}
+            value={value.at ? value.at.slice(11, 16) : ""}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                at: value.at ? `${value.at.slice(0, 10)}T${event.target.value || "09:00"}` : "",
+              })
+            }
+          />
+        </div>
       )}
 
       {value.enabled && (

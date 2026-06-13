@@ -9,7 +9,14 @@ import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
 import { ReminderEditor } from "@/components/tasks/ReminderEditor";
-import { buildReminder, dismissReminder, reanchorReminder, snoozeReminder, toDraft } from "@/lib/reminder";
+import {
+  buildReminder,
+  dismissReminder,
+  reanchorReminder,
+  snoozeReminder,
+  toDraft,
+  type ReminderDraft,
+} from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DatePicker } from "@/components/shared/DatePicker";
@@ -46,6 +53,10 @@ export function TaskDetail({ task }: TaskDetailProps) {
   const [description, setDescription] = useState(task.description ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Held locally so an in-progress reminder edit (e.g. choosing "absolute"
+  // before picking a date) survives — it isn't re-derived from task.reminder
+  // on every keystroke. Re-seeded only when a different task is selected.
+  const [reminderDraft, setReminderDraft] = useState<ReminderDraft>(() => toDraft(task.reminder));
 
   // Re-sync local editors when a different task is selected or data refreshes.
   useEffect(() => {
@@ -53,6 +64,13 @@ export function TaskDetail({ task }: TaskDetailProps) {
     setDescription(task.description ?? "");
     setNotes(task.notes ?? "");
   }, [task.id, task.title, task.description, task.notes]);
+
+  useEffect(() => {
+    setReminderDraft(toDraft(task.reminder));
+    // Only re-seed on task switch; mid-edit drafts must not be clobbered by
+    // the immediate persist of partial/absolute reminders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
 
   const save = async (patch: Parameters<typeof updateTask>[1]): Promise<void> => {
     try {
@@ -230,12 +248,13 @@ export function TaskDetail({ task }: TaskDetailProps) {
         <div className="space-y-1.5">
           <Label>Reminder</Label>
           <ReminderEditor
-            value={toDraft(task.reminder)}
+            value={reminderDraft}
             dueDate={task.dueDate}
             dueTime={task.dueTime}
-            onChange={(draft) =>
-              void save({ reminder: buildReminder(draft, task.dueDate, task.dueTime) ?? null })
-            }
+            onChange={(draft) => {
+              setReminderDraft(draft);
+              void save({ reminder: buildReminder(draft, task.dueDate, task.dueTime) ?? null });
+            }}
           />
           {task.reminder && !task.reminder.dismissedAt && (
             <div className="flex gap-2">
