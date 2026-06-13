@@ -113,12 +113,20 @@ export function startReminderLoop(intervalMs = 60_000): () => void {
     for (const task of due) {
       if (cancelled) return;
       if (!task.reminder) continue;
+      let surfaced = false;
       if (document.hasFocus()) {
         showInAppReminder(task);
+        surfaced = true;
       } else if (allowed) {
         sendNotification({ title: task.title, body: notificationBody(task) });
+        surfaced = true;
       }
-      await store.updateTask(task.id, { reminder: advanceAfterFire(task.reminder, nowIso) });
+      // Only consume the reminder once it has actually been surfaced; otherwise
+      // leave it pending so it fires when the window regains focus or
+      // notifications are re-enabled — never silently swallow it.
+      if (surfaced) {
+        await store.updateTask(task.id, { reminder: advanceAfterFire(task.reminder, nowIso) });
+      }
     }
   };
 

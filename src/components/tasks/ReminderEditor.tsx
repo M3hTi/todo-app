@@ -111,6 +111,9 @@ export function ReminderEditor({ value, dueDate, dueTime: _dueTime, onChange }: 
       {value.enabled && value.mode === "relative" && relativeUnavailable && (
         <p className="text-xs text-muted-foreground">Set a due date to use a "before due" reminder.</p>
       )}
+      {value.enabled && value.mode === "absolute" && !value.at && (
+        <p className="text-xs text-muted-foreground">Pick a date and time for the reminder.</p>
+      )}
       {value.enabled && (
         <p className="text-xs text-muted-foreground">
           Repeats stop when the task is completed or you dismiss the reminder.
