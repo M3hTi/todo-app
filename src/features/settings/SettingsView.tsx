@@ -58,6 +58,16 @@ const recurringRuleSchema = z.object({
   endDate: z.string().optional(),
 });
 
+const reminderSchema = z.object({
+  mode: z.enum(["relative", "absolute"]),
+  minutesBefore: z.number().optional(),
+  at: z.string().optional(),
+  repeatMinutes: z.number().optional(),
+  nextFireAt: z.string(),
+  lastFiredAt: z.string().optional(),
+  dismissedAt: z.string().optional(),
+});
+
 const taskSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -71,6 +81,7 @@ const taskSchema = z.object({
   subtasks: z.array(subtaskSchema),
   reminderAt: z.string().optional(),
   reminderShownAt: z.string().optional(),
+  reminder: reminderSchema.optional(),
   recurringRule: recurringRuleSchema.optional(),
   sortOrder: z.number(),
   createdAt: z.string(),
@@ -184,11 +195,22 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
           (categoryIds.has(task.categoryId) ? task.categoryId : null))
         : null;
 
+      const reminderJson = task.reminder
+        ? JSON.stringify(task.reminder)
+        : task.reminderAt
+          ? JSON.stringify({
+              mode: "absolute",
+              at: task.reminderAt,
+              nextFireAt: task.reminderAt,
+              ...(task.reminderShownAt ? { dismissedAt: task.reminderShownAt } : {}),
+            })
+          : null;
+
       await db.execute(
         `INSERT INTO tasks (id, title, description, status, priority, due_date, due_time,
-          category_id, reminder_at, reminder_shown_at, recurring_rule_json, sort_order,
+          category_id, reminder_json, recurring_rule_json, sort_order,
           created_at, updated_at, completed_at, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [
           task.id,
           task.title,
@@ -198,8 +220,7 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
           task.dueDate ?? null,
           task.dueTime ?? null,
           categoryId,
-          task.reminderAt ?? null,
-          task.reminderShownAt ?? null,
+          reminderJson,
           task.recurringRule ? JSON.stringify(task.recurringRule) : null,
           task.sortOrder,
           task.createdAt,
