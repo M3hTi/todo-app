@@ -3,10 +3,15 @@ import { z } from "zod";
 import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
+import {
+  enable as enableAutostart,
+  disable as disableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 import { Download, ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { format } from "date-fns";
-import type { TaskPriority, Theme } from "@/types";
+import type { CloseBehavior, TaskPriority, Theme } from "@/types";
 import { getDb, resetAllData, withDb } from "@/lib/db";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
@@ -266,11 +271,18 @@ export function SettingsView() {
   const [pendingImport, setPendingImport] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [autostartOn, setAutostartOn] = useState<boolean | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
 
   useEffect(() => {
     void isPermissionGranted().then(setPermissionGranted);
+  }, []);
+
+  useEffect(() => {
+    void isAutostartEnabled()
+      .then(setAutostartOn)
+      .catch(() => setAutostartOn(null));
   }, []);
 
   const handleNotificationsToggle = async (enabled: boolean): Promise<void> => {
@@ -288,6 +300,20 @@ export function SettingsView() {
     } else {
       toast.error("Notification permission was denied by the system.");
       await updateSetting("notificationsEnabled", false);
+    }
+  };
+
+  const handleAutostartToggle = async (on: boolean): Promise<void> => {
+    try {
+      if (on) {
+        await enableAutostart();
+      } else {
+        await disableAutostart();
+      }
+      setAutostartOn(on);
+      await updateSetting("launchOnStartup", on);
+    } catch {
+      toast.error("Couldn't change the launch-on-startup setting.");
     }
   };
 
@@ -523,6 +549,49 @@ export function SettingsView() {
             Settings → System → Notifications, then re-enable here.
           </p>
         )}
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold">Window &amp; startup</h3>
+        <Separator className="my-3" />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label>When I close the window</Label>
+              <p className="text-xs text-muted-foreground">
+                Minimizing to the tray keeps reminders running. Quitting stops them until you
+                reopen the app.
+              </p>
+            </div>
+            <Select
+              value={settings.closeBehavior === "quit" ? "quit" : "tray"}
+              onValueChange={(value) => void updateSetting("closeBehavior", value as CloseBehavior)}
+            >
+              <SelectTrigger className="w-44" aria-label="When I close the window">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tray">Minimize to tray</SelectItem>
+                <SelectItem value="quit">Quit the app</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="launch-on-startup"
+              checked={settings.launchOnStartup}
+              onCheckedChange={(checked) => void handleAutostartToggle(checked === true)}
+            />
+            <Label htmlFor="launch-on-startup">
+              Launch Todo App when Windows starts (minimized to tray)
+            </Label>
+          </div>
+          {autostartOn !== null && autostartOn !== settings.launchOnStartup && (
+            <p className="text-xs text-muted-foreground">
+              System startup state and this setting differ; toggling will re-sync them.
+            </p>
+          )}
+        </div>
       </div>
 
       <div>
