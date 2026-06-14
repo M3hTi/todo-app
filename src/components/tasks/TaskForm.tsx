@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { parseISO, subMinutes } from "date-fns";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import type { RecurrenceFrequency, RecurringRule, TaskPriority, TaskStatus } from "@/types";
+import { ReminderEditor } from "@/components/tasks/ReminderEditor";
+import { DatePicker } from "@/components/shared/DatePicker";
+import { buildReminder, NO_REMINDER_DRAFT, type ReminderDraft } from "@/lib/reminder";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
@@ -41,16 +43,6 @@ const PRIORITIES: [TaskPriority, ...TaskPriority[]] = ["Low", "Medium", "High", 
 const FREQUENCIES: RecurrenceFrequency[] = ["Daily", "Weekly", "Monthly", "Yearly"];
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
 
-const REMINDER_OPTIONS = [
-  { value: "none", label: "No reminder" },
-  { value: "0", label: "At due time" },
-  { value: "5", label: "5 minutes before" },
-  { value: "15", label: "15 minutes before" },
-  { value: "30", label: "30 minutes before" },
-  { value: "60", label: "1 hour before" },
-  { value: "1440", label: "1 day before" },
-] as const;
-
 const taskFormSchema = z.object({
   title: z.string().min(1, "Title is required").max(255, "Title must be 255 characters or fewer"),
   description: z.string().max(2000, "Description must be 2000 characters or fewer"),
@@ -59,21 +51,9 @@ const taskFormSchema = z.object({
   categoryId: z.string(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date").or(z.literal("")),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time").or(z.literal("")),
-  reminderMinutes: z.string(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
-
-/** Builds the reminderAt ISO datetime from due date/time and a minutes-before choice. */
-export function computeReminderAt(
-  dueDate: string,
-  dueTime: string,
-  reminderMinutes: string,
-): string | undefined {
-  if (reminderMinutes === "none" || !dueDate) return undefined;
-  const base = parseISO(`${dueDate}T${dueTime || "09:00"}`);
-  return subMinutes(base, Number(reminderMinutes)).toISOString();
-}
 
 export function TaskForm() {
   const open = useTaskStore((state) => state.taskFormOpen);
@@ -85,6 +65,7 @@ export function TaskForm() {
 
   const [tags, setTags] = useState<string[]>([]);
   const [recurringRule, setRecurringRule] = useState<RecurringRule | undefined>(undefined);
+  const [reminderDraft, setReminderDraft] = useState<ReminderDraft>(NO_REMINDER_DRAFT);
 
   const {
     register,
@@ -95,20 +76,19 @@ export function TaskForm() {
     formState: { errors, isSubmitting },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
-    defaultValues: makeDefaults(settings.defaultPriority, settings.defaultCategoryId, settings.defaultReminderMinutesBefore),
+    defaultValues: makeDefaults(settings.defaultPriority, settings.defaultCategoryId),
   });
 
   useEffect(() => {
     if (open) {
-      reset(
-        makeDefaults(
-          settings.defaultPriority,
-          settings.defaultCategoryId,
-          settings.defaultReminderMinutesBefore,
-        ),
-      );
+      reset(makeDefaults(settings.defaultPriority, settings.defaultCategoryId));
       setTags([]);
       setRecurringRule(undefined);
+      setReminderDraft(
+        settings.defaultReminderMinutesBefore > 0
+          ? { ...NO_REMINDER_DRAFT, enabled: true, minutesBefore: settings.defaultReminderMinutesBefore }
+          : { ...NO_REMINDER_DRAFT },
+      );
     }
   }, [open, reset, settings]);
 
@@ -116,7 +96,6 @@ export function TaskForm() {
   const status = watch("status");
   const priority = watch("priority");
   const categoryId = watch("categoryId");
-  const reminderMinutes = watch("reminderMinutes");
 
   const onSubmit = async (values: TaskFormValues): Promise<void> => {
     try {
@@ -128,7 +107,7 @@ export function TaskForm() {
         categoryId: values.categoryId === "none" ? undefined : values.categoryId,
         dueDate: values.dueDate || undefined,
         dueTime: values.dueTime || undefined,
-        reminderAt: computeReminderAt(values.dueDate, values.dueTime, values.reminderMinutes),
+        reminder: buildReminder(reminderDraft, values.dueDate || undefined, values.dueTime || undefined),
         recurringRule,
         tags,
       });
@@ -230,7 +209,12 @@ export function TaskForm() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="task-due-date">Due date</Label>
-              <Input id="task-due-date" type="date" {...register("dueDate")} />
+              <DatePicker
+                id="task-due-date"
+                ariaLabel="Due date"
+                value={dueDate || undefined}
+                onChange={(value) => setValue("dueDate", value ?? "", { shouldValidate: true })}
+              />
               {errors.dueDate && (
                 <p className="text-sm text-destructive">{errors.dueDate.message}</p>
               )}
@@ -246,24 +230,12 @@ export function TaskForm() {
 
           <div className="space-y-1.5">
             <Label>Reminder</Label>
-            <Select
-              value={reminderMinutes}
-              onValueChange={(value) => setValue("reminderMinutes", value)}
-            >
-              <SelectTrigger aria-label="Reminder" disabled={!dueDate}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REMINDER_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!dueDate && (
-              <p className="text-xs text-muted-foreground">Set a due date to enable reminders.</p>
-            )}
+            <ReminderEditor
+              value={reminderDraft}
+              dueDate={dueDate || undefined}
+              dueTime={watch("dueTime") || undefined}
+              onChange={setReminderDraft}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -288,7 +260,6 @@ export function TaskForm() {
 function makeDefaults(
   defaultPriority: TaskPriority,
   defaultCategoryId: string | undefined,
-  defaultReminderMinutesBefore: number,
 ): TaskFormValues {
   return {
     title: "",
@@ -298,8 +269,6 @@ function makeDefaults(
     categoryId: defaultCategoryId ?? "none",
     dueDate: "",
     dueTime: "",
-    reminderMinutes:
-      defaultReminderMinutesBefore > 0 ? String(defaultReminderMinutesBefore) : "none",
   };
 }
 
@@ -479,14 +448,14 @@ export function RecurrenceEditor({ value, onChange }: RecurrenceEditorProps) {
 
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Until</span>
-            <Input
-              type="date"
-              className="h-8 w-40"
-              aria-label="Repeat end date"
-              value={value.endDate ?? ""}
-              onChange={(event) => {
+            <DatePicker
+              ariaLabel="Repeat end date"
+              placeholder="No end date"
+              className="h-8 w-44"
+              value={value.endDate ?? undefined}
+              onChange={(next) => {
                 const { endDate: _endDate, ...rest } = value;
-                onChange(event.target.value ? { ...rest, endDate: event.target.value } : rest);
+                onChange(next ? { ...rest, endDate: next } : rest);
               }}
             />
           </div>

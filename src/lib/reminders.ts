@@ -3,9 +3,16 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import { toast } from "sonner";
 import type { Task } from "@/types";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import {
+  advanceAfterFire,
+  dismissReminder,
+  isReminderDue,
+  snoozeReminder,
+} from "@/lib/reminder";
 
 /**
  * Requests notification permission (first launch shows the OS prompt) and
@@ -25,17 +32,6 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return granted;
 }
 
-// Completed/cancelled tasks never fire reminders.
-function isReminderDue(task: Task, nowIso: string): boolean {
-  return (
-    task.reminderAt !== undefined &&
-    task.reminderShownAt === undefined &&
-    task.reminderAt <= nowIso &&
-    task.status !== "Completed" &&
-    task.status !== "Cancelled"
-  );
-}
-
 async function canNotify(): Promise<boolean> {
   if (!useSettingsStore.getState().settings.notificationsEnabled) return false;
   return isPermissionGranted();
@@ -46,25 +42,62 @@ function notificationBody(task: Task): string {
   return due ? `Due: ${due} · ${task.priority}` : task.priority;
 }
 
+/** Looks up the freshest copy of a task's reminder (it may have changed). */
+function currentReminder(taskId: string) {
+  return useTaskStore.getState().tasks.find((task) => task.id === taskId)?.reminder;
+}
+
+/** Sonner toast with Snooze/Dismiss, shown when the window is focused. */
+function showInAppReminder(task: Task): void {
+  toast(task.title, {
+    description: notificationBody(task),
+    action: {
+      label: "Snooze 15m",
+      onClick: () => {
+        const reminder = currentReminder(task.id);
+        if (reminder) {
+          void useTaskStore
+            .getState()
+            .updateTask(task.id, { reminder: snoozeReminder(reminder, new Date().toISOString()) });
+        }
+      },
+    },
+    cancel: {
+      label: "Dismiss",
+      onClick: () => {
+        const reminder = currentReminder(task.id);
+        if (reminder) {
+          void useTaskStore
+            .getState()
+            .updateTask(task.id, { reminder: dismissReminder(reminder, new Date().toISOString()) });
+        }
+      },
+    },
+  });
+}
+
 /**
- * Marks reminders that elapsed while the app was closed as shown and returns
- * how many there were, so the caller can surface one grouped toast instead of
- * firing a burst of native notifications.
+ * Marks reminders that elapsed while the app was closed as fired/advanced and
+ * returns how many there were, so the caller can show one grouped toast instead
+ * of a burst of notifications.
  */
 export async function checkMissedReminders(): Promise<number> {
   const store = useTaskStore.getState();
   const nowIso = new Date().toISOString();
-  const missed = store.tasks.filter((task) => isReminderDue(task, nowIso));
+  const missed = store.tasks.filter((task) => isReminderDue(task.reminder, task.status, nowIso));
   for (const task of missed) {
-    await store.updateTask(task.id, { reminderShownAt: nowIso });
+    if (task.reminder) {
+      await store.updateTask(task.id, { reminder: advanceAfterFire(task.reminder, nowIso) });
+    }
   }
   return missed.length;
 }
 
 /**
- * Checks every intervalMs for due reminders; fires a Tauri notification,
- * stamps reminderShownAt in the DB and updates the store. Returns a cleanup
- * function that stops the loop.
+ * Checks every intervalMs for due reminders; fires (native notification when
+ * the window is unfocused, in-app toast with Snooze/Dismiss when focused), then
+ * advances the reminder (repeat -> reschedule; one-shot -> done). Returns a
+ * cleanup function that stops the loop.
  */
 export function startReminderLoop(intervalMs = 60_000): () => void {
   let cancelled = false;
@@ -73,16 +106,27 @@ export function startReminderLoop(intervalMs = 60_000): () => void {
     if (cancelled) return;
     const store = useTaskStore.getState();
     const nowIso = new Date().toISOString();
-    const due = store.tasks.filter((task) => isReminderDue(task, nowIso));
+    const due = store.tasks.filter((task) => isReminderDue(task.reminder, task.status, nowIso));
     if (due.length === 0) return;
 
     const allowed = await canNotify();
     for (const task of due) {
       if (cancelled) return;
-      if (allowed) {
+      if (!task.reminder) continue;
+      let surfaced = false;
+      if (document.hasFocus()) {
+        showInAppReminder(task);
+        surfaced = true;
+      } else if (allowed) {
         sendNotification({ title: task.title, body: notificationBody(task) });
+        surfaced = true;
       }
-      await store.updateTask(task.id, { reminderShownAt: nowIso });
+      // Only consume the reminder once it has actually been surfaced; otherwise
+      // leave it pending so it fires when the window regains focus or
+      // notifications are re-enabled — never silently swallow it.
+      if (surfaced) {
+        await store.updateTask(task.id, { reminder: advanceAfterFire(task.reminder, nowIso) });
+      }
     }
   };
 

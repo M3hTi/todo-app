@@ -1,9 +1,9 @@
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
-import { differenceInMinutes, parseISO, subMinutes } from "date-fns";
 import type { Task } from "@/types";
 import { selectFilteredTasks, useTaskStore } from "@/store/useTaskStore";
 import { getNextDueDate, isRuleExpired } from "@/lib/recurrence";
+import { reminderForNextOccurrence } from "@/lib/reminder";
 
 /** Tasks after search, filters and sort — the list every view renders from. */
 export function useFilteredTasks(): Task[] {
@@ -44,22 +44,12 @@ async function doToggle(task: Task): Promise<void> {
       status: "Not Started",
       dueDate: nextDueDate,
       completedAt: null,
-      reminderAt: shiftReminder(task, nextDueDate),
-      reminderShownAt: null,
+      reminder: reminderForNextOccurrence(task.reminder, nextDueDate, task.dueTime),
     });
     return;
   }
 
   await store.updateTask(task.id, { status: "Completed", completedAt });
-}
-
-/** Keeps a reminder the same distance before the due time when a task recurs. */
-function shiftReminder(task: Task, nextDueDate: string): string | null {
-  if (!task.reminderAt || !task.dueDate) return null;
-  const oldDue = parseISO(`${task.dueDate}T${task.dueTime ?? "09:00"}`);
-  const minutesBefore = differenceInMinutes(oldDue, parseISO(task.reminderAt));
-  const newDue = parseISO(`${nextDueDate}T${task.dueTime ?? "09:00"}`);
-  return subMinutes(newDue, minutesBefore).toISOString();
 }
 
 /** The currently selected task, if any. */

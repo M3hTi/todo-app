@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultPriority: "Medium",
   defaultReminderMinutesBefore: 15,
   notificationsEnabled: true,
+  closeBehavior: "ask",
+  launchOnStartup: false,
 };
 
 const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");

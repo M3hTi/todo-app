@@ -3,10 +3,15 @@ import { z } from "zod";
 import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
+import {
+  enable as enableAutostart,
+  disable as disableAutostart,
+  isEnabled as isAutostartEnabled,
+} from "@tauri-apps/plugin-autostart";
 import { toast } from "sonner";
 import { Download, ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { format } from "date-fns";
-import type { TaskPriority, Theme } from "@/types";
+import type { CloseBehavior, TaskPriority, Theme } from "@/types";
 import { getDb, resetAllData, withDb } from "@/lib/db";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
@@ -53,6 +58,16 @@ const recurringRuleSchema = z.object({
   endDate: z.string().optional(),
 });
 
+const reminderSchema = z.object({
+  mode: z.enum(["relative", "absolute"]),
+  minutesBefore: z.number().optional(),
+  at: z.string().optional(),
+  repeatMinutes: z.number().optional(),
+  nextFireAt: z.string(),
+  lastFiredAt: z.string().optional(),
+  dismissedAt: z.string().optional(),
+});
+
 const taskSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -66,6 +81,7 @@ const taskSchema = z.object({
   subtasks: z.array(subtaskSchema),
   reminderAt: z.string().optional(),
   reminderShownAt: z.string().optional(),
+  reminder: reminderSchema.optional(),
   recurringRule: recurringRuleSchema.optional(),
   sortOrder: z.number(),
   createdAt: z.string(),
@@ -94,6 +110,8 @@ const settingsSchema = z.object({
   defaultPriority: z.enum(["Low", "Medium", "High", "Urgent"]),
   defaultReminderMinutesBefore: z.number(),
   notificationsEnabled: z.boolean(),
+  closeBehavior: z.enum(["ask", "tray", "quit"]).default("ask"),
+  launchOnStartup: z.boolean().default(false),
 });
 
 const exportFileSchema = z.object({
@@ -177,11 +195,22 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
           (categoryIds.has(task.categoryId) ? task.categoryId : null))
         : null;
 
+      const reminderJson = task.reminder
+        ? JSON.stringify(task.reminder)
+        : task.reminderAt
+          ? JSON.stringify({
+              mode: "absolute",
+              at: task.reminderAt,
+              nextFireAt: task.reminderAt,
+              ...(task.reminderShownAt ? { dismissedAt: task.reminderShownAt } : {}),
+            })
+          : null;
+
       await db.execute(
         `INSERT INTO tasks (id, title, description, status, priority, due_date, due_time,
-          category_id, reminder_at, reminder_shown_at, recurring_rule_json, sort_order,
+          category_id, reminder_json, recurring_rule_json, sort_order,
           created_at, updated_at, completed_at, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [
           task.id,
           task.title,
@@ -191,8 +220,7 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
           task.dueDate ?? null,
           task.dueTime ?? null,
           categoryId,
-          task.reminderAt ?? null,
-          task.reminderShownAt ?? null,
+          reminderJson,
           task.recurringRule ? JSON.stringify(task.recurringRule) : null,
           task.sortOrder,
           task.createdAt,
@@ -264,11 +292,18 @@ export function SettingsView() {
   const [pendingImport, setPendingImport] = useState<ExportFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [autostartOn, setAutostartOn] = useState<boolean | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
 
   useEffect(() => {
     void isPermissionGranted().then(setPermissionGranted);
+  }, []);
+
+  useEffect(() => {
+    void isAutostartEnabled()
+      .then(setAutostartOn)
+      .catch(() => setAutostartOn(null));
   }, []);
 
   const handleNotificationsToggle = async (enabled: boolean): Promise<void> => {
@@ -286,6 +321,20 @@ export function SettingsView() {
     } else {
       toast.error("Notification permission was denied by the system.");
       await updateSetting("notificationsEnabled", false);
+    }
+  };
+
+  const handleAutostartToggle = async (on: boolean): Promise<void> => {
+    try {
+      if (on) {
+        await enableAutostart();
+      } else {
+        await disableAutostart();
+      }
+      setAutostartOn(on);
+      await updateSetting("launchOnStartup", on);
+    } catch {
+      toast.error("Couldn't change the launch-on-startup setting.");
     }
   };
 
@@ -521,6 +570,50 @@ export function SettingsView() {
             Settings → System → Notifications, then re-enable here.
           </p>
         )}
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold">Window &amp; startup</h3>
+        <Separator className="my-3" />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label>When I close the window</Label>
+              <p className="text-xs text-muted-foreground">
+                Minimizing to the tray keeps reminders running. Quitting stops them until you
+                reopen the app.
+              </p>
+            </div>
+            <Select
+              value={settings.closeBehavior}
+              onValueChange={(value) => void updateSetting("closeBehavior", value as CloseBehavior)}
+            >
+              <SelectTrigger className="w-44" aria-label="When I close the window">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ask">Ask each time</SelectItem>
+                <SelectItem value="tray">Minimize to tray</SelectItem>
+                <SelectItem value="quit">Quit the app</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="launch-on-startup"
+              checked={settings.launchOnStartup}
+              onCheckedChange={(checked) => void handleAutostartToggle(checked === true)}
+            />
+            <Label htmlFor="launch-on-startup">
+              Launch Todo App when Windows starts (minimized to tray)
+            </Label>
+          </div>
+          {autostartOn !== null && autostartOn !== settings.launchOnStartup && (
+            <p className="text-xs text-muted-foreground">
+              System startup state and this setting differ; toggling will re-sync them.
+            </p>
+          )}
+        </div>
       </div>
 
       <div>

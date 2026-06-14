@@ -8,8 +8,18 @@ import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
+import { ReminderEditor } from "@/components/tasks/ReminderEditor";
+import {
+  buildReminder,
+  dismissReminder,
+  reanchorReminder,
+  snoozeReminder,
+  toDraft,
+  type ReminderDraft,
+} from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { DatePicker } from "@/components/shared/DatePicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -43,6 +53,10 @@ export function TaskDetail({ task }: TaskDetailProps) {
   const [description, setDescription] = useState(task.description ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Held locally so an in-progress reminder edit (e.g. choosing "absolute"
+  // before picking a date) survives — it isn't re-derived from task.reminder
+  // on every keystroke. Re-seeded only when a different task is selected.
+  const [reminderDraft, setReminderDraft] = useState<ReminderDraft>(() => toDraft(task.reminder));
 
   // Re-sync local editors when a different task is selected or data refreshes.
   useEffect(() => {
@@ -50,6 +64,13 @@ export function TaskDetail({ task }: TaskDetailProps) {
     setDescription(task.description ?? "");
     setNotes(task.notes ?? "");
   }, [task.id, task.title, task.description, task.notes]);
+
+  useEffect(() => {
+    setReminderDraft(toDraft(task.reminder));
+    // Only re-seed on task switch; mid-edit drafts must not be clobbered by
+    // the immediate persist of partial/absolute reminders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
 
   const save = async (patch: Parameters<typeof updateTask>[1]): Promise<void> => {
     try {
@@ -188,16 +209,21 @@ export function TaskDetail({ task }: TaskDetailProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="detail-due-date">Due date</Label>
-            <Input
+            <DatePicker
               id="detail-due-date"
-              type="date"
-              value={task.dueDate ?? ""}
-              onChange={(event) =>
-                void save({
-                  dueDate: event.target.value || null,
-                  ...(event.target.value ? {} : { dueTime: null, reminderAt: null }),
-                })
-              }
+              ariaLabel="Due date"
+              value={task.dueDate}
+              onChange={(value) => {
+                const newDue = value ?? null;
+                const patch: Parameters<typeof updateTask>[1] = { dueDate: newDue };
+                if (!newDue) {
+                  patch.dueTime = null;
+                  if (task.reminder?.mode === "relative") patch.reminder = null;
+                } else if (task.reminder?.mode === "relative") {
+                  patch.reminder = reanchorReminder(task.reminder, newDue, task.dueTime);
+                }
+                void save(patch);
+              }}
             />
           </div>
           <div className="space-y-1.5">
@@ -207,26 +233,55 @@ export function TaskDetail({ task }: TaskDetailProps) {
               type="time"
               value={task.dueTime ?? ""}
               disabled={!task.dueDate}
-              onChange={(event) => void save({ dueTime: event.target.value || null })}
+              onChange={(event) => {
+                const newTime = event.target.value || null;
+                const patch: Parameters<typeof updateTask>[1] = { dueTime: newTime };
+                if (task.dueDate && task.reminder?.mode === "relative") {
+                  patch.reminder = reanchorReminder(task.reminder, task.dueDate, newTime ?? undefined);
+                }
+                void save(patch);
+              }}
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="detail-reminder">Reminder</Label>
-          <Input
-            id="detail-reminder"
-            type="datetime-local"
-            value={task.reminderAt ? format(parseISO(task.reminderAt), "yyyy-MM-dd'T'HH:mm") : ""}
-            onChange={(event) =>
-              void save({
-                reminderAt: event.target.value
-                  ? new Date(event.target.value).toISOString()
-                  : null,
-                reminderShownAt: null,
-              })
-            }
+          <Label>Reminder</Label>
+          <ReminderEditor
+            value={reminderDraft}
+            dueDate={task.dueDate}
+            dueTime={task.dueTime}
+            onChange={(draft) => {
+              setReminderDraft(draft);
+              void save({ reminder: buildReminder(draft, task.dueDate, task.dueTime) ?? null });
+            }}
           />
+          {task.reminder && !task.reminder.dismissedAt && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  task.reminder &&
+                  void save({ reminder: snoozeReminder(task.reminder, new Date().toISOString()) })
+                }
+              >
+                Snooze 15m
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  task.reminder &&
+                  void save({ reminder: dismissReminder(task.reminder, new Date().toISOString()) })
+                }
+              >
+                Dismiss
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5">

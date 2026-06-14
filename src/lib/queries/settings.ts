@@ -6,6 +6,8 @@ const DEFAULTS: AppSettings = {
   defaultPriority: "Medium",
   defaultReminderMinutesBefore: 15,
   notificationsEnabled: true,
+  closeBehavior: "ask",
+  launchOnStartup: false,
 };
 
 interface SettingRow {
