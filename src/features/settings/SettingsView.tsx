@@ -13,6 +13,7 @@ import { Download, ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { format } from "date-fns";
 import type { CloseBehavior, TaskPriority, Theme } from "@/types";
 import { getDb, resetAllData, withDb } from "@/lib/db";
+import { autostartAction } from "@/lib/autostart";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
@@ -326,9 +327,10 @@ export function SettingsView() {
 
   const handleAutostartToggle = async (on: boolean): Promise<void> => {
     try {
-      if (on) {
+      const action = autostartAction(on, await isAutostartEnabled());
+      if (action === "enable") {
         await enableAutostart();
-      } else {
+      } else if (action === "disable") {
         await disableAutostart();
       }
       setAutostartOn(on);
