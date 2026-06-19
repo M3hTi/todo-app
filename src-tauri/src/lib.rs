@@ -98,6 +98,12 @@ fn quit_app(app: AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be the first plugin: intercepts a second launch (e.g. re-clicking
+        // the desktop icon) and surfaces the running window instead of spawning
+        // another tray instance. The duplicate process then exits.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            show_main(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
