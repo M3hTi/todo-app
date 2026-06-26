@@ -288,18 +288,3 @@ export async function deleteTask(id: string): Promise<void> {
     await getDb().execute("DELETE FROM tasks WHERE id = $1", [id]);
   });
 }
-
-export async function searchTasks(query: string): Promise<Task[]> {
-  return withDb("searchTasks", async () => {
-    const pattern = `%${query.replace(/[%_]/g, (char) => `\\${char}`)}%`;
-    const rows = await getDb().select<TaskRow[]>(
-      `SELECT ${TASK_COLUMNS} FROM tasks
-       WHERE title LIKE $1 ESCAPE '\\'
-          OR description LIKE $1 ESCAPE '\\'
-          OR notes LIKE $1 ESCAPE '\\'
-       ORDER BY sort_order, created_at`,
-      [pattern],
-    );
-    return assembleTasks(rows);
-  });
-}

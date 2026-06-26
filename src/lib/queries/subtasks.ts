@@ -1,39 +1,7 @@
 import type { Subtask } from "@/types";
 import { getDb, withDb } from "@/lib/db";
 
-interface SubtaskRow {
-  id: string;
-  task_id: string;
-  title: string;
-  completed: number;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
-
 const SUBTASK_COLUMNS = "id, task_id, title, completed, sort_order, created_at, updated_at";
-
-function mapSubtask(row: SubtaskRow): Subtask {
-  return {
-    id: row.id,
-    taskId: row.task_id,
-    title: row.title,
-    completed: row.completed === 1,
-    order: row.sort_order,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-export async function getSubtasksForTask(taskId: string): Promise<Subtask[]> {
-  return withDb("getSubtasksForTask", async () => {
-    const rows = await getDb().select<SubtaskRow[]>(
-      `SELECT ${SUBTASK_COLUMNS} FROM subtasks WHERE task_id = $1 ORDER BY sort_order`,
-      [taskId],
-    );
-    return rows.map(mapSubtask);
-  });
-}
 
 export async function createSubtask(taskId: string, title: string): Promise<Subtask> {
   return withDb("createSubtask", async () => {
