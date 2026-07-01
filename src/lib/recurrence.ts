@@ -64,3 +64,24 @@ export function getNextDueDate(rule: RecurringRule, fromDate: string): string {
 export function isRuleExpired(rule: RecurringRule, nextDueDate: string): boolean {
   return rule.endDate !== undefined && nextDueDate > rule.endDate;
 }
+
+/**
+ * Next due date for a recurring task completed on `today` (local yyyy-MM-dd),
+ * anchored on its current `dueDate` and rolled forward to the first occurrence
+ * strictly after `today`. Missed occurrences are skipped, not replayed. When the
+ * task has no due date, the anchor falls back to `today` — a no-op equivalent to
+ * the prior completion-anchor behavior. See docs/adr/0002-recurrence-rollforward-anchor.md.
+ *
+ * Terminates because getNextDueDate(rule, X) is always strictly after X.
+ */
+export function nextDueDateAfterCompletion(
+  rule: RecurringRule,
+  dueDate: string | undefined,
+  today: string,
+): string {
+  let next = getNextDueDate(rule, dueDate ?? today);
+  while (next <= today) {
+    next = getNextDueDate(rule, next);
+  }
+  return next;
+}

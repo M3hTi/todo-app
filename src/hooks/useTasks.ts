@@ -1,8 +1,9 @@
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import type { Task } from "@/types";
 import { selectFilteredTasks, useTaskStore } from "@/store/useTaskStore";
-import { getNextDueDate, isRuleExpired } from "@/lib/recurrence";
+import { isRuleExpired, nextDueDateAfterCompletion } from "@/lib/recurrence";
 import { reminderForNextOccurrence } from "@/lib/reminder";
 
 /** Tasks after search, filters and sort — the list every view renders from. */
@@ -32,10 +33,12 @@ async function doToggle(task: Task): Promise<void> {
     return;
   }
 
-  const completedAt = new Date().toISOString();
+  const now = new Date();
+  const completedAt = now.toISOString();
 
   if (task.recurringRule) {
-    const nextDueDate = getNextDueDate(task.recurringRule, completedAt);
+    const today = format(now, "yyyy-MM-dd");
+    const nextDueDate = nextDueDateAfterCompletion(task.recurringRule, task.dueDate, today);
     if (isRuleExpired(task.recurringRule, nextDueDate)) {
       await store.updateTask(task.id, { status: "Completed", completedAt, recurringRule: null });
       return;

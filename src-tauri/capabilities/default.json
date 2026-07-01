@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window capability: window, tray, menu, notification, fs, dialog, sql, autostart",
+  "description": "Main window capability: window, tray, menu, notification, fs, dialog, sql, autostart. fs:scope below governs app-constructed paths only: dialog-selected import/export paths (SettingsView) are auto-granted at runtime by the dialog plugin and are NOT restricted by it. Narrowed from ** as defense-in-depth for any future direct-path fs access.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -21,7 +21,7 @@
     "fs:allow-write-text-file",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "**" }, { "path": "$HOME/**" }, { "path": "$APPDATA/**" }]
+      "allow": [{ "path": "$HOME/**" }, { "path": "$APPDATA/**" }, { "path": "$DOWNLOAD/**" }]
     },
     "sql:default",
     "sql:allow-load",

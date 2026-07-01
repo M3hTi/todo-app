@@ -159,7 +159,13 @@ export function Sidebar() {
         onConfirm={() => {
           if (deletingTag) {
             void deleteTag(deletingTag.id)
-              .then(() => toast.success("Tag deleted."))
+              .then(({ reloadFailed }) => {
+                if (reloadFailed) {
+                  toast("Tag deleted, but the task list couldn't refresh — reload to see changes.");
+                } else {
+                  toast.success("Tag deleted.");
+                }
+              })
               .catch(() => toast.error("Failed to delete tag. Please try again."));
           }
         }}

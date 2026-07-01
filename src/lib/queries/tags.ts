@@ -20,20 +20,6 @@ export async function getAllTags(): Promise<Tag[]> {
   });
 }
 
-export async function getTagsForTask(taskId: string): Promise<Tag[]> {
-  return withDb("getTagsForTask", async () => {
-    const rows = await getDb().select<TagRow[]>(
-      `SELECT t.id, t.name, t.created_at
-       FROM tags t
-       JOIN task_tags tt ON tt.tag_id = t.id
-       WHERE tt.task_id = $1
-       ORDER BY t.name COLLATE NOCASE`,
-      [taskId],
-    );
-    return rows.map(mapTag);
-  });
-}
-
 /**
  * Replaces a task's tag set with the given names: creates missing tags,
  * rewrites the task_tags links, then prunes tags no task references.

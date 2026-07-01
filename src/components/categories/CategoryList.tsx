@@ -108,7 +108,13 @@ export function CategoryList() {
         onConfirm={() => {
           if (deleting) {
             void deleteCategory(deleting.id)
-              .then(() => toast.success("Category deleted."))
+              .then(({ reloadFailed }) => {
+                if (reloadFailed) {
+                  toast("Category deleted, but the task list couldn't refresh — reload to see changes.");
+                } else {
+                  toast.success("Category deleted.");
+                }
+              })
               .catch(() => toast.error("Failed to delete category. Please try again."));
           }
         }}

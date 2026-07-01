@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import packageJson from "../../../package.json";
+import { parseImportData } from "./parseImportData";
 
 const subtaskSchema = z.object({
   id: z.string(),
@@ -421,14 +422,18 @@ export function SettingsView() {
       });
       if (typeof path !== "string") return;
       const raw = await readTextFile(path);
-      const parsed = exportFileSchema.safeParse(JSON.parse(raw));
-      if (!parsed.success) {
-        toast.error("Invalid file format.");
+      const result = parseImportData(raw, exportFileSchema);
+      if (!result.ok) {
+        toast.error(
+          result.reason === "invalid-json"
+            ? "Couldn't read the file — it isn't valid JSON."
+            : "This file isn't a valid Todo App export.",
+        );
         return;
       }
-      setPendingImport(parsed.data);
+      setPendingImport(result.data);
     } catch {
-      toast.error("Invalid file format.");
+      toast.error("Couldn't open the file. Please try again.");
     }
   };
 
