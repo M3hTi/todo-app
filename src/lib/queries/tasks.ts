@@ -2,7 +2,7 @@ import type { RecurringRule, Subtask, Tag, Task, TaskPriority, TaskStatus } from
 import { getDb, withDb } from "@/lib/db";
 import { setTagsForTask } from "@/lib/queries/tags";
 
-interface TaskRow {
+export interface TaskRow {
   id: string;
   title: string;
   description: string | null;
@@ -125,17 +125,23 @@ function mapSubtaskRow(row: SubtaskRow): Subtask {
 }
 
 /** Loads subtasks and tag names for the given rows and assembles full Task objects. */
-async function assembleTasks(rows: TaskRow[]): Promise<Task[]> {
+export async function assembleTasks(rows: TaskRow[]): Promise<Task[]> {
   if (rows.length === 0) return [];
   const db = getDb();
+  const ids = rows.map((row) => row.id);
+  const placeholders = ids.map((_, index) => `$${index + 1}`).join(", ");
 
   const subtaskRows = await db.select<SubtaskRow[]>(
-    "SELECT id, task_id, title, completed, sort_order, created_at, updated_at FROM subtasks ORDER BY sort_order",
+    `SELECT id, task_id, title, completed, sort_order, created_at, updated_at
+     FROM subtasks WHERE task_id IN (${placeholders}) ORDER BY sort_order`,
+    ids,
   );
   const tagRows = await db.select<TaskTagRow[]>(
     `SELECT tt.task_id, t.name
      FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
+     WHERE tt.task_id IN (${placeholders})
      ORDER BY t.name COLLATE NOCASE`,
+    ids,
   );
 
   const subtasksByTask = new Map<string, Subtask[]>();
