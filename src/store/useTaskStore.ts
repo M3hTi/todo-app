@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import type { Task, TaskPriority, TaskStatus } from "@/types";
 import {
   createTask,
@@ -71,6 +72,12 @@ export const useTaskStore = create<TaskStoreState>((set) => ({
     try {
       const tasks = await getAllTasks();
       set({ tasks });
+    } catch (err) {
+      // Self-defense: any caller that awaits/chains loadTasks() still sees
+      // the rejection (existing callers keep their own handling), but a
+      // caller that doesn't is not left with a silently swallowed failure.
+      toast.error("Failed to load tasks. Please try again.");
+      throw err;
     } finally {
       set({ loading: false });
     }

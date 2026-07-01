@@ -14,7 +14,12 @@ interface CategoryStoreState {
   loadCategories: () => Promise<void>;
   addCategory: (name: string, color: string) => Promise<Category>;
   updateCategory: (id: string, patch: Partial<Pick<Category, "name" | "color">>) => Promise<void>;
-  deleteCategory: (id: string) => Promise<void>;
+  /**
+   * Deletes the category. Resolves { reloadFailed: true } rather than
+   * rejecting if the delete itself succeeds but the subsequent task reload
+   * fails — a reload failure must not be misreported as a delete failure.
+   */
+  deleteCategory: (id: string) => Promise<{ reloadFailed: boolean }>;
 }
 
 export const useCategoryStore = create<CategoryStoreState>((set) => ({
@@ -52,7 +57,14 @@ export const useCategoryStore = create<CategoryStoreState>((set) => ({
       categories: state.categories.filter((category) => category.id !== id),
     }));
     // Tasks in this category were detached by the FK (category_id → NULL);
-    // reload so in-memory tasks reflect that.
-    await useTaskStore.getState().loadTasks();
+    // reload so in-memory tasks reflect that. The delete above already
+    // succeeded — a reload failure here is reported as a partial failure,
+    // not attributed back to the (already-successful) delete.
+    try {
+      await useTaskStore.getState().loadTasks();
+      return { reloadFailed: false };
+    } catch {
+      return { reloadFailed: true };
+    }
   },
 }));
