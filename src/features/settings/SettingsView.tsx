@@ -457,7 +457,10 @@ export function SettingsView() {
   };
 
   return (
-    <section className="mx-auto max-w-2xl space-y-8 p-6" aria-label="Settings">
+    <section
+      className="mx-auto w-full max-w-2xl flex-1 space-y-8 overflow-y-auto p-6"
+      aria-label="Settings"
+    >
       <div>
         <h3 className="text-base font-semibold">Appearance</h3>
         <Separator className="my-3" />

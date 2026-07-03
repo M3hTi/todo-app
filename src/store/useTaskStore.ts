@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { Task, TaskPriority, TaskStatus } from "@/types";
+import type { Task, TaskPriority } from "@/types";
 import {
   createTask,
   deleteTask,
@@ -15,8 +15,6 @@ export type SortBy = "sortOrder" | "dueDate" | "priority" | "title" | "createdAt
 export type SortDir = "asc" | "desc";
 
 export interface TaskFilters {
-  filterStatus: TaskStatus | null;
-  filterPriority: TaskPriority | null;
   filterCategoryId: string | null;
   filterTags: string[];
 }
@@ -57,11 +55,9 @@ export const useTaskStore = create<TaskStoreState>((set) => ({
   tasks: [],
   selectedTaskId: null,
   searchQuery: "",
-  filterStatus: null,
-  filterPriority: null,
   filterCategoryId: null,
   filterTags: [],
-  sortBy: "sortOrder",
+  sortBy: "dueDate",
   sortDir: "asc",
   loading: false,
   taskFormOpen: false,
@@ -130,8 +126,6 @@ export function selectFilteredTasks(state: TaskStoreState): Task[] {
   const query = state.searchQuery.trim().toLowerCase();
 
   const filtered = state.tasks.filter((task) => {
-    if (state.filterStatus && task.status !== state.filterStatus) return false;
-    if (state.filterPriority && task.priority !== state.filterPriority) return false;
     if (state.filterCategoryId && task.categoryId !== state.filterCategoryId) return false;
     if (
       state.filterTags.length > 0 &&
@@ -139,10 +133,7 @@ export function selectFilteredTasks(state: TaskStoreState): Task[] {
     ) {
       return false;
     }
-    if (query) {
-      const haystack = `${task.title} ${task.description ?? ""} ${task.notes ?? ""}`.toLowerCase();
-      if (!haystack.includes(query)) return false;
-    }
+    if (query && !task.title.toLowerCase().includes(query)) return false;
     return true;
   });
 

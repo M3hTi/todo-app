@@ -26,9 +26,7 @@ import {
   updateSubtask,
 } from "@/lib/queries/subtasks";
 import { useTaskStore } from "@/store/useTaskStore";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
 import { cn } from "@/lib/utils";
 
 interface SubtaskListProps {
@@ -43,8 +41,6 @@ export function SubtaskList({ task }: SubtaskListProps) {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  const completedCount = task.subtasks.filter((subtask) => subtask.completed).length;
 
   const failSave = (): void => {
     toast.error("Failed to save subtask. Please try again.");
@@ -96,12 +92,6 @@ export function SubtaskList({ task }: SubtaskListProps) {
 
   return (
     <div className="space-y-2">
-      {task.subtasks.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {completedCount} of {task.subtasks.length} completed
-        </p>
-      )}
-
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -149,22 +139,20 @@ export function SubtaskList({ task }: SubtaskListProps) {
       </DndContext>
 
       <form
-        className="flex items-center gap-1.5"
+        className="mt-2.5 flex items-center gap-2 rounded-[9px] border border-dashed border-[#d8d8e0] px-3 py-[9px] text-[#9a9aa6] focus-within:border-[#4f46e5] focus-within:text-[#4f46e5]"
         onSubmit={(event) => {
           event.preventDefault();
           void handleAdd();
         }}
       >
-        <Input
+        <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+        <input
           value={newTitle}
           onChange={(event) => setNewTitle(event.target.value)}
           placeholder="Add a subtask…"
-          className="h-8 text-sm"
+          className="w-full min-w-0 flex-1 bg-transparent text-[13px] text-[#1c1b22] placeholder:text-[#9a9aa6] focus-visible:outline-none"
           aria-label="New subtask title"
         />
-        <Button type="submit" size="icon" variant="outline" className="h-8 w-8 shrink-0" aria-label="Add subtask">
-          <Plus className="h-4 w-4" />
-        </Button>
       </form>
     </div>
   );
@@ -193,22 +181,24 @@ function SortableSubtaskRow({ subtask, onToggle, onRename, onDelete }: SortableS
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-accent/50",
-        isDragging && "z-10 bg-accent shadow-sm",
+        "group flex items-start gap-2 rounded-[7px] px-0.5 py-[7px] hover:bg-[#fafafb]",
+        isDragging && "z-10 bg-[#fafafb] shadow-sm",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-1 cursor-grab touch-none text-[#cfcfda] hover:text-[#9a9aa6] focus-visible:outline-none"
         aria-label={`Reorder ${subtask.title}`}
         {...attributes}
         {...listeners}
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <Checkbox
+      <TaskCheckbox
         checked={subtask.completed}
-        onCheckedChange={(checked) => void onToggle(checked === true)}
+        onToggle={() => void onToggle(!subtask.completed)}
+        size={17}
+        className="mt-px rounded-[5px]"
         aria-label={`Mark ${subtask.title} ${subtask.completed ? "incomplete" : "complete"}`}
       />
       <input
@@ -219,20 +209,19 @@ function SortableSubtaskRow({ subtask, onToggle, onRename, onDelete }: SortableS
           if (event.key === "Enter") event.currentTarget.blur();
         }}
         className={cn(
-          "min-w-0 flex-1 bg-transparent text-sm focus-visible:outline-none",
-          subtask.completed && "text-muted-foreground line-through",
+          "min-w-0 flex-1 bg-transparent text-[13px] leading-[1.45] focus-visible:outline-none",
+          subtask.completed ? "text-[#9a9aa6] line-through" : "text-[#1c1b22]",
         )}
         aria-label={`Subtask title: ${subtask.title}`}
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+      <button
+        type="button"
         aria-label={`Delete subtask ${subtask.title}`}
         onClick={() => void onDelete()}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:text-[#ef4444] group-hover:opacity-100 focus-visible:opacity-100"
       >
-        <Trash2 className="h-3 w-3 text-destructive" />
-      </Button>
+        <Trash2 className="h-3 w-3" />
+      </button>
     </li>
   );
 }

@@ -1,28 +1,17 @@
-import { CalendarDays, AlertTriangle } from "lucide-react";
-import { format, isBefore, parseISO, startOfDay } from "date-fns";
-import type { Task, TaskPriority } from "@/types";
+import { format, isBefore, isToday, parseISO, startOfDay } from "date-fns";
+import type { Task } from "@/types";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { TagBadge } from "@/components/shared/TagBadge";
+import { PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
+import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
 import { cn } from "@/lib/utils";
-
-const PRIORITY_STYLES: Record<TaskPriority, string> = {
-  Low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  Medium: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  High: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  Urgent: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-};
 
 export function isTaskOverdue(task: Task): boolean {
   if (!task.dueDate) return false;
   if (task.status === "Completed" || task.status === "Cancelled") return false;
   return isBefore(parseISO(task.dueDate), startOfDay(new Date()));
 }
-
-const MAX_VISIBLE_TAGS = 3;
 
 interface TaskCardProps {
   task: Task;
@@ -36,10 +25,16 @@ export function TaskCard({ task }: TaskCardProps) {
   );
 
   const completed = task.status === "Completed";
-  const overdue = isTaskOverdue(task);
+  const dueToday = task.dueDate !== undefined && isToday(parseISO(task.dueDate));
   const subtaskTotal = task.subtasks.length;
   const subtaskDone = task.subtasks.filter((subtask) => subtask.completed).length;
-  const hiddenTagCount = task.tags.length - MAX_VISIBLE_TAGS;
+  const progressPct = subtaskTotal > 0 ? Math.round((subtaskDone / subtaskTotal) * 100) : 0;
+  const firstTag = task.tags[0];
+  const dueLabel = task.dueDate
+    ? dueToday
+      ? "Today"
+      : format(parseISO(task.dueDate), "MMM d")
+    : undefined;
 
   return (
     <div
@@ -53,85 +48,80 @@ export function TaskCard({ task }: TaskCardProps) {
         }
       }}
       className={cn(
-        "group flex cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 transition-colors",
-        "hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        selectedTaskId === task.id && "border-primary ring-1 ring-primary",
+        "flex h-[58px] cursor-pointer items-center gap-3.5 rounded-[12px] bg-white px-[18px]",
+        "hover:bg-[#fafafb] focus-visible:outline-none",
+        selectedTaskId === task.id
+          ? "border border-[#4f46e5] shadow-[0_0_0_3px_rgba(79,70,229,.1)]"
+          : "border border-[#ececf1]",
       )}
     >
-      <Checkbox
+      <TaskCheckbox
         checked={completed}
-        onCheckedChange={() => void toggleTaskComplete(task)}
-        onClick={(event) => event.stopPropagation()}
+        onToggle={() => void toggleTaskComplete(task)}
         aria-label={`Mark ${task.title} ${completed ? "incomplete" : "complete"}`}
-        className="mt-0.5"
       />
 
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <p
-            className={cn(
-              "truncate text-sm font-medium",
-              completed && "text-muted-foreground line-through",
-            )}
-          >
-            {task.title}
-          </p>
-          <Badge className={cn("shrink-0 px-1.5 py-0 text-[11px]", PRIORITY_STYLES[task.priority])}>
-            {task.priority}
-          </Badge>
-        </div>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-sm",
+          completed
+            ? "font-medium text-[#9a9aa6] line-through"
+            : "font-semibold text-[#1c1b22]",
+        )}
+      >
+        {task.title}
+      </span>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          {task.dueDate && (
-            <span
-              className={cn("flex items-center gap-1", overdue && "font-medium text-rose-500")}
-            >
-              {overdue ? (
-                <AlertTriangle className="h-3 w-3" aria-label="Overdue" />
-              ) : (
-                <CalendarDays className="h-3 w-3" />
-              )}
-              {format(parseISO(task.dueDate), "MMM d, yyyy")}
-              {task.dueTime && ` · ${task.dueTime}`}
-            </span>
-          )}
-          {category && (
-            <span className="flex items-center gap-1">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: category.color }}
-              />
-              {category.name}
-            </span>
-          )}
-          {task.tags.slice(0, MAX_VISIBLE_TAGS).map((tag) => (
-            <TagBadge key={tag} name={tag} />
-          ))}
-          {hiddenTagCount > 0 && (
-            <span className="text-[11px] text-muted-foreground">+{hiddenTagCount} more</span>
-          )}
-        </div>
+      <div className="ml-auto flex shrink-0 items-center gap-4">
+        {firstTag && (
+          <span className="rounded-[5px] bg-[#f3f3f7] px-2 py-0.5 text-[11px] text-[#6c6c78]">
+            {firstTag}
+          </span>
+        )}
 
         {subtaskTotal > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {subtaskDone}/{subtaskTotal}
-            </span>
-            <div
-              className="h-1 w-28 overflow-hidden rounded-full bg-muted"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={subtaskTotal}
-              aria-valuenow={subtaskDone}
-              aria-label="Subtask progress"
-            >
+            <div className="h-1 w-[68px] overflow-hidden rounded-full bg-[#eeeef2]">
               <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${(subtaskDone / subtaskTotal) * 100}%` }}
+                className={cn("h-full", completed ? "bg-[#b9b6f0]" : "bg-[#4f46e5]")}
+                style={{ width: `${progressPct}%` }}
               />
             </div>
+            <span className="w-6 text-[11px] text-[#9a9aa6]">
+              {subtaskDone}/{subtaskTotal}
+            </span>
           </div>
         )}
+
+        {category && (
+          <span className="flex w-[62px] items-center gap-[7px] text-xs text-[#6c6c78]">
+            <span
+              className="h-[7px] w-[7px] shrink-0 rounded-full"
+              style={{ backgroundColor: category.color }}
+            />
+            <span className="min-w-0 truncate">{category.name}</span>
+          </span>
+        )}
+
+        {dueLabel && (
+          <span
+            className={cn(
+              "min-w-[46px] whitespace-nowrap text-xs",
+              dueToday && !completed ? "font-semibold text-[#4f46e5]" : "text-[#6c6c78]",
+            )}
+          >
+            {dueLabel}
+          </span>
+        )}
+
+        <span
+          className={cn(
+            "min-w-[42px] shrink-0 whitespace-nowrap rounded-[20px] px-2.5 py-[3px] text-center text-[11px] font-semibold",
+            PRIORITY_PILL_CLASSES[task.priority],
+          )}
+        >
+          {task.priority}
+        </span>
       </div>
     </div>
   );

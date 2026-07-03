@@ -6,7 +6,6 @@ import type { Category } from "@/types";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { CategoryForm } from "@/components/categories/CategoryForm";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function CategoryList() {
@@ -21,59 +20,54 @@ export function CategoryList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between px-3 py-1">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Categories
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
+      <div className="mb-2.5 mt-6 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9a9aa6]">
+        Categories
+        <button
+          type="button"
           aria-label="New category"
           onClick={() => setCreateOpen(true)}
+          className="flex h-4 w-4 items-center justify-center text-[#b8b8c2] hover:text-[#4f46e5]"
         >
-          <Plus className="h-4 w-4" />
-        </Button>
+          <Plus className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      <ul className="space-y-0.5">
+      <ul className="flex flex-col gap-[9px] px-2">
         {categories.map((category) => (
           <li key={category.id} className="group relative">
             <NavLink
               to={`/category/${category.id}`}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isActive && "bg-accent font-medium text-accent-foreground",
+                  "flex items-center gap-2.5 rounded-[8px] py-1 pl-1 pr-12 text-sm text-[#3f3f4a] transition-colors",
+                  "hover:bg-[#f5f5f8]",
+                  isActive && "font-semibold text-[#4f46e5]",
                 )
               }
             >
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                className="h-[9px] w-[9px] shrink-0 rounded-full"
                 style={{ backgroundColor: category.color }}
               />
-              <span className="truncate pr-12">{category.name}</span>
+              <span className="truncate">{category.name}</span>
             </NavLink>
-            <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 gap-0.5 group-hover:flex">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
+            <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <button
+                type="button"
                 aria-label={`Rename ${category.name}`}
                 onClick={() => setEditing(category)}
+                className="flex h-5 w-5 items-center justify-center rounded text-[#9a9aa6] hover:text-[#4f46e5]"
               >
                 <Pencil className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-destructive hover:text-destructive"
+              </button>
+              <button
+                type="button"
                 aria-label={`Delete ${category.name}`}
                 onClick={() => setDeleting(category)}
+                className="flex h-5 w-5 items-center justify-center rounded text-[#9a9aa6] hover:text-[#ef4444]"
               >
                 <Trash2 className="h-3 w-3" />
-              </Button>
+              </button>
             </div>
           </li>
         ))}
