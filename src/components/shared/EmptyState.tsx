@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Inbox } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 
 interface EmptyStateProps {
   icon?: LucideIcon;
@@ -7,12 +7,16 @@ interface EmptyStateProps {
   description?: string;
 }
 
-export function EmptyState({ icon: Icon = Inbox, title, description }: EmptyStateProps) {
+export function EmptyState({ icon: Icon = CalendarCheck, title, description }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-      <Icon className="h-10 w-10 text-muted-foreground/50" aria-hidden="true" />
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      {description && <p className="max-w-xs text-xs text-muted-foreground/70">{description}</p>}
+    <div className="flex h-full flex-col items-center justify-center gap-0 pb-[60px] text-center">
+      <div className="mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-[18px] bg-[var(--accent-tint)]">
+        <Icon className="h-7 w-7 text-[var(--accent-text)]" strokeWidth={2} aria-hidden="true" />
+      </div>
+      <p className="mb-1.5 text-[15px] font-semibold text-[var(--text-1)]">{title}</p>
+      {description && (
+        <p className="max-w-[260px] text-[13px] leading-[1.5] text-[var(--text-4b)]">{description}</p>
+      )}
     </div>
   );
 }

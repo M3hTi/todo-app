@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   FolderOpen,
   ListTodo,
+  Search,
   Sun,
 } from "lucide-react";
 import type { Task } from "@/types";
@@ -25,9 +26,8 @@ import { useTagStore } from "@/store/useTagStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useFilteredTasks } from "@/hooks/useTasks";
 import { AppShell } from "@/components/layout/AppShell";
-import { TaskList } from "@/components/tasks/TaskList";
-import { TaskCard, isTaskOverdue } from "@/components/tasks/TaskCard";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { TaskListPage, type TaskGroup } from "@/components/tasks/TaskListPage";
+import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { CalendarView } from "@/features/calendar/CalendarView";
 import { SettingsView } from "@/features/settings/SettingsView";
@@ -36,27 +36,54 @@ const isOpen = (task: Task): boolean =>
   task.status !== "Completed" && task.status !== "Cancelled";
 
 function AllTasksView() {
+  const allTasks = useTaskStore((state) => state.tasks);
+  const filterCategoryId = useTaskStore((state) => state.filterCategoryId);
+  const query = useTaskStore((state) => state.searchQuery.trim());
+  const filtered = useFilteredTasks();
+
+  const active = filtered.filter((task) => task.status !== "Completed");
+  const done = filtered.filter((task) => task.status === "Completed");
+  const groups: TaskGroup[] = [];
+  if (active.length) groups.push({ label: `IN PROGRESS · ${active.length}`, tasks: active });
+  if (done.length) groups.push({ label: `COMPLETED · ${done.length}`, tasks: done });
+
+  const totalOpen = allTasks.filter((task) => task.status !== "Completed").length;
+  const isFiltering = query.length > 0 || filterCategoryId !== null;
+
   return (
-    <TaskList
-      emptyTitle="No tasks yet"
-      emptyDescription="Create your first task with the New Task button."
-      emptyIcon={ListTodo}
+    <TaskListPage
+      title="All Tasks"
+      subtitle={`${allTasks.length} tasks · ${totalOpen} in progress`}
+      groups={groups}
+      showToolbar
+      showSearch
+      emptyIcon={isFiltering ? Search : ListTodo}
+      emptyTitle={isFiltering ? "No matching tasks" : "No tasks yet"}
+      emptyDescription={
+        isFiltering
+          ? "Nothing matches your search. Try a different keyword."
+          : "Create your first task with the New Task button."
+      }
     />
   );
 }
 
 function TodayView() {
-  const tasks = useFilteredTasks();
+  const filtered = useFilteredTasks();
   const today = format(new Date(), "yyyy-MM-dd");
-  const visible = tasks.filter(
+  const visible = filtered.filter(
     (task) => task.dueDate === today || isToday(parseISO(task.createdAt)),
   );
   return (
-    <TaskList
-      tasks={visible}
-      emptyTitle="Nothing due today"
-      emptyDescription="Tasks due today or created today show up here."
+    <TaskListPage
+      title="Today"
+      subtitle={`${format(new Date(), "EEEE, MMMM d")} · ${visible.length} ${
+        visible.length === 1 ? "task" : "tasks"
+      }`}
+      groups={[{ tasks: visible }]}
       emptyIcon={Sun}
+      emptyTitle="Nothing due today"
+      emptyDescription="Tasks due today show up here."
     />
   );
 }
@@ -65,23 +92,13 @@ const UPCOMING_GROUPS = ["Today", "Tomorrow", "This Week", "Later"] as const;
 type UpcomingGroup = (typeof UPCOMING_GROUPS)[number];
 
 function UpcomingView() {
-  const tasks = useFilteredTasks();
+  const filtered = useFilteredTasks();
   const today = format(new Date(), "yyyy-MM-dd");
-  const upcoming = tasks.filter(
+  const upcoming = filtered.filter(
     (task) => isOpen(task) && task.dueDate !== undefined && task.dueDate > today,
   );
 
-  if (upcoming.length === 0) {
-    return (
-      <EmptyState
-        icon={CalendarClock}
-        title="Nothing upcoming"
-        description="Tasks with a future due date show up here."
-      />
-    );
-  }
-
-  const groups = new Map<UpcomingGroup, Task[]>(UPCOMING_GROUPS.map((group) => [group, []]));
+  const byGroup = new Map<UpcomingGroup, Task[]>(UPCOMING_GROUPS.map((group) => [group, []]));
   for (const task of upcoming) {
     const date = parseISO(task.dueDate as string);
     const group: UpcomingGroup = isToday(date)
@@ -91,67 +108,77 @@ function UpcomingView() {
         : isThisWeek(date, { weekStartsOn: 1 })
           ? "This Week"
           : "Later";
-    groups.get(group)?.push(task);
+    byGroup.get(group)?.push(task);
   }
+  const groups: TaskGroup[] = UPCOMING_GROUPS.map((label) => ({
+    label,
+    tasks: byGroup.get(label) ?? [],
+  }));
 
   return (
-    <div className="space-y-5 p-4">
-      {UPCOMING_GROUPS.map((group) => {
-        const groupTasks = groups.get(group) ?? [];
-        if (groupTasks.length === 0) return null;
-        return (
-          <section key={group} aria-label={group}>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {group}
-            </h3>
-            <div role="list" aria-label={`${group} tasks`} className="space-y-2">
-              {groupTasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
-    </div>
+    <TaskListPage
+      title="Upcoming"
+      subtitle={upcoming.length > 0 ? `${upcoming.length} tasks scheduled ahead` : "Nothing scheduled ahead"}
+      groups={groups}
+      emptyIcon={CalendarClock}
+      emptyTitle="Nothing upcoming"
+      emptyDescription="Tasks with a future due date show up here, so you can plan ahead."
+    />
   );
 }
 
 function CompletedView() {
-  const tasks = useFilteredTasks();
-  const visible = tasks.filter((task) => task.status === "Completed");
+  const allTasks = useTaskStore((state) => state.tasks);
+  const filtered = useFilteredTasks();
+  const visible = filtered.filter((task) => task.status === "Completed");
+  const totalDone = allTasks.filter((task) => task.status === "Completed").length;
+
   return (
-    <TaskList
-      tasks={visible}
-      emptyTitle="No completed tasks"
-      emptyDescription="Tasks you complete show up here."
+    <TaskListPage
+      title="Completed"
+      subtitle={`${totalDone} tasks completed`}
+      groups={[{ tasks: visible }]}
+      showToolbar
       emptyIcon={CheckCircle2}
+      emptyTitle="Nothing completed yet"
+      emptyDescription="Check off your first task and it will land here."
     />
   );
 }
 
 function OverdueView() {
-  const tasks = useFilteredTasks();
-  const visible = tasks.filter(isTaskOverdue);
+  const filtered = useFilteredTasks();
+  const visible = filtered.filter(isTaskOverdue);
   return (
-    <TaskList
-      tasks={visible}
-      emptyTitle="Nothing overdue"
-      emptyDescription="You're all caught up."
+    <TaskListPage
+      title="Overdue"
+      subtitle={
+        visible.length > 0
+          ? `${visible.length} ${visible.length === 1 ? "task needs" : "tasks need"} your attention`
+          : "You're all caught up"
+      }
+      groups={[{ tasks: visible }]}
       emptyIcon={AlertCircle}
+      emptyTitle="Nothing overdue"
+      emptyDescription="You're all caught up. Nice work."
     />
   );
 }
 
 function CategoryTasksView() {
   const { id } = useParams<{ id: string }>();
-  const tasks = useFilteredTasks();
-  const visible = tasks.filter((task) => task.categoryId === id);
+  const category = useCategoryStore((state) => state.categories.find((c) => c.id === id));
+  const filtered = useFilteredTasks();
+  const visible = filtered.filter((task) => task.categoryId === id);
+
   return (
-    <TaskList
-      tasks={visible}
+    <TaskListPage
+      title={category?.name ?? "Category"}
+      subtitle={`${visible.length} ${visible.length === 1 ? "task" : "tasks"}`}
+      groups={[{ tasks: visible }]}
+      emptyIcon={FolderOpen}
       emptyTitle="No tasks in this category"
       emptyDescription="Assign tasks to this category to see them here."
-      emptyIcon={FolderOpen}
     />
   );
 }

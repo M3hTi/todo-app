@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { format, isToday, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { Trash2, X } from "lucide-react";
 import type { Task, TaskPriority, TaskStatus } from "@/types";
+import type { UpdateTaskInput } from "@/lib/queries/tasks";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
+import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
 import { ReminderEditor } from "@/components/tasks/ReminderEditor";
 import {
@@ -19,24 +21,26 @@ import {
 } from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { DatePicker } from "@/components/shared/DatePicker";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { quickDate, type QuickChip } from "@/lib/dateChips";
 import { cn } from "@/lib/utils";
 
 const STATUSES: TaskStatus[] = ["Not Started", "In Progress", "Completed", "Cancelled"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
+const DATE_CHIPS: { chip: QuickChip; label: string }[] = [
+  { chip: "today", label: "Today" },
+  { chip: "tomorrow", label: "Tomorrow" },
+  { chip: "weekend", label: "This weekend" },
+  { chip: "nextWeek", label: "Next week" },
+];
+
+const sectionLabel = "mb-2 text-[13.5px] font-semibold text-[var(--text-1)]";
+const metaRow =
+  "flex items-center justify-between border-b border-[var(--hairline)] py-[11px] text-left";
+const metaLabel = "text-[12.5px] text-[var(--text-4b)]";
 
 interface TaskDetailProps {
   task: Task;
@@ -53,12 +57,8 @@ export function TaskDetail({ task }: TaskDetailProps) {
   const [description, setDescription] = useState(task.description ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Held locally so an in-progress reminder edit (e.g. choosing "absolute"
-  // before picking a date) survives — it isn't re-derived from task.reminder
-  // on every keystroke. Re-seeded only when a different task is selected.
   const [reminderDraft, setReminderDraft] = useState<ReminderDraft>(() => toDraft(task.reminder));
 
-  // Re-sync local editors when a different task is selected or data refreshes.
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description ?? "");
@@ -67,12 +67,11 @@ export function TaskDetail({ task }: TaskDetailProps) {
 
   useEffect(() => {
     setReminderDraft(toDraft(task.reminder));
-    // Only re-seed on task switch; mid-edit drafts must not be clobbered by
-    // the immediate persist of partial/absolute reminders.
+    // Only re-seed on task switch; mid-edit drafts must not be clobbered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
 
-  const save = async (patch: Parameters<typeof updateTask>[1]): Promise<void> => {
+  const save = async (patch: UpdateTaskInput): Promise<void> => {
     try {
       await updateTask(task.id, patch);
     } catch {
@@ -81,31 +80,38 @@ export function TaskDetail({ task }: TaskDetailProps) {
   };
 
   const completed = task.status === "Completed";
+  const category = categories.find((candidate) => candidate.id === task.categoryId);
+  const dueToday = task.dueDate ? isToday(parseISO(task.dueDate)) : false;
+  const subtaskTotal = task.subtasks.length;
+  const subtaskDone = task.subtasks.filter((subtask) => subtask.completed).length;
+  const subtaskPct = subtaskTotal > 0 ? Math.round((subtaskDone / subtaskTotal) * 100) : 0;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-2.5">
-        <span className="text-sm font-semibold text-muted-foreground">Task details</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+      <div className="flex items-center justify-between px-[22px] pt-[22px]">
+        <span className="text-[13px] font-semibold tracking-[.04em] text-[var(--text-4)]">
+          TASK DETAILS
+        </span>
+        <button
+          type="button"
           aria-label="Close details"
           onClick={() => setSelectedTask(null)}
+          className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[var(--text-4)] hover:bg-[var(--surface-hover-nav)]"
         >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        <div className="flex items-start gap-2.5">
-          <Checkbox
-            checked={completed}
-            onCheckedChange={() => void toggleTaskComplete(task)}
-            aria-label={`Mark ${task.title} ${completed ? "incomplete" : "complete"}`}
-            className="mt-2"
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-[22px] pb-[22px] pt-3.5">
+        <div>
+          <StatusPill
+            task={task}
+            onChange={(status) => {
+              if (status === "Completed") void toggleTaskComplete(task);
+              else void save({ status, completedAt: null });
+            }}
           />
-          <Input
+          <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             onBlur={() => {
@@ -118,16 +124,198 @@ export function TaskDetail({ task }: TaskDetailProps) {
             }}
             aria-label="Task title"
             className={cn(
-              "border-transparent text-base font-medium shadow-none hover:border-input",
-              completed && "text-muted-foreground line-through",
+              "mt-2.5 w-full border-none bg-transparent text-[17px] font-bold leading-[1.35] outline-none",
+              completed ? "text-[var(--text-done)] line-through" : "text-[var(--text-1)]",
             )}
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="detail-description">Description</Label>
+        <div className="flex flex-col border-t border-[var(--hairline)]">
+          <div className={metaRow}>
+            <span className={metaLabel}>Due date</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "text-[13px] font-medium",
+                    dueToday && !completed ? "text-[var(--accent-text)]" : "text-[var(--text-1)]",
+                  )}
+                >
+                  {task.dueDate
+                    ? dueToday
+                      ? "Today"
+                      : format(parseISO(task.dueDate), "MMM d, yyyy")
+                    : "Add date"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-[316px] rounded-xl border-[var(--border)] bg-[var(--surface-raised)] p-[18px] shadow-[0_8px_28px_rgba(0,0,0,.45)]"
+                align="end"
+                collisionPadding={12}
+              >
+                <div className="mb-3 flex flex-wrap gap-1.5 border-b border-[var(--border)] pb-3">
+                  {DATE_CHIPS.map(({ chip, label }) => (
+                    <Button
+                      key={chip}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        const value = quickDate(chip, new Date());
+                        const patch: UpdateTaskInput = { dueDate: value };
+                        if (task.reminder?.mode === "relative") {
+                          patch.reminder = reanchorReminder(task.reminder, value, task.dueTime);
+                        }
+                        void save(patch);
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                  {task.dueDate && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        const patch: UpdateTaskInput = { dueDate: null, dueTime: null };
+                        if (task.reminder?.mode === "relative") patch.reminder = null;
+                        void save(patch);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={task.dueDate ? parseISO(task.dueDate) : undefined}
+                  defaultMonth={task.dueDate ? parseISO(task.dueDate) : undefined}
+                  onSelect={(day) => {
+                    if (!day) return;
+                    const value = format(day, "yyyy-MM-dd");
+                    const patch: UpdateTaskInput = { dueDate: value };
+                    if (task.reminder?.mode === "relative") {
+                      patch.reminder = reanchorReminder(task.reminder, value, task.dueTime);
+                    }
+                    void save(patch);
+                  }}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className={metaRow}>
+            <span className={metaLabel}>Priority</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-[20px] px-2.5 py-[3px] text-[11px] font-semibold",
+                    PRIORITY_PILL_CLASSES[task.priority],
+                  )}
+                >
+                  {task.priority}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1.5" align="end">
+                <div className="flex flex-col gap-1">
+                  {PRIORITIES.map((priority) => (
+                    <button
+                      key={priority}
+                      type="button"
+                      onClick={() => void save({ priority })}
+                      className={cn(
+                        "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]",
+                        priority === task.priority && "font-semibold",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "rounded-[20px] px-2.5 py-[3px] text-[11px] font-semibold",
+                          PRIORITY_PILL_CLASSES[priority],
+                        )}
+                      >
+                        {priority}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className={metaRow}>
+            <span className={metaLabel}>Category</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-[7px] text-[13px] font-medium text-[var(--text-1)]"
+                >
+                  {category && (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: categoryDotColor(category.color) }}
+                    />
+                  )}
+                  {category?.name ?? "No category"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1.5" align="end">
+                <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => void save({ categoryId: null })}
+                    className="rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]"
+                  >
+                    No category
+                  </button>
+                  {categories.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => void save({ categoryId: option.id })}
+                      className="flex items-center gap-[7px] rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]"
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: categoryDotColor(option.color) }}
+                      />
+                      {option.name}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className={metaRow}>
+            <span className={metaLabel}>Repeat</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="text-[13px] text-[var(--text-3)]">
+                  {task.recurringRule ? task.recurringRule.frequency : "Does not repeat"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <RecurrenceEditor
+                  value={task.recurringRule}
+                  onChange={(rule) => void save({ recurringRule: rule ?? null })}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        <div>
+          <p className={sectionLabel}>Description</p>
           <Textarea
-            id="detail-description"
             rows={2}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -136,117 +324,23 @@ export function TaskDetail({ task }: TaskDetailProps) {
                 void save({ description: description.trim() || null });
               }
             }}
+            className="rounded-[9px] border-[var(--border)] text-[13px]"
+            placeholder="Add a description…"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Status</Label>
-            <Select
-              value={task.status}
-              onValueChange={(value) => {
-                const status = value as TaskStatus;
-                if (status === "Completed") {
-                  // Route through the shared toggle so recurring tasks roll forward.
-                  void toggleTaskComplete(task);
-                } else {
-                  void save({ status, completedAt: null });
-                }
-              }}
-            >
-              <SelectTrigger aria-label="Status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Priority</Label>
-            <Select
-              value={task.priority}
-              onValueChange={(value) => void save({ priority: value as TaskPriority })}
-            >
-              <SelectTrigger aria-label="Priority">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map((priority) => (
-                  <SelectItem key={priority} value={priority}>
-                    {priority}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div>
+          <p className={sectionLabel}>Tags</p>
+          <TagInput
+            value={task.tags}
+            onChange={(tags) => {
+              void save({ tags }).then(() => loadTags());
+            }}
+          />
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Category</Label>
-          <Select
-            value={task.categoryId ?? "none"}
-            onValueChange={(value) => void save({ categoryId: value === "none" ? null : value })}
-          >
-            <SelectTrigger aria-label="Category">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No category</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="detail-due-date">Due date</Label>
-            <DatePicker
-              id="detail-due-date"
-              ariaLabel="Due date"
-              value={task.dueDate}
-              onChange={(value) => {
-                const newDue = value ?? null;
-                const patch: Parameters<typeof updateTask>[1] = { dueDate: newDue };
-                if (!newDue) {
-                  patch.dueTime = null;
-                  if (task.reminder?.mode === "relative") patch.reminder = null;
-                } else if (task.reminder?.mode === "relative") {
-                  patch.reminder = reanchorReminder(task.reminder, newDue, task.dueTime);
-                }
-                void save(patch);
-              }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="detail-due-time">Due time</Label>
-            <Input
-              id="detail-due-time"
-              type="time"
-              value={task.dueTime ?? ""}
-              disabled={!task.dueDate}
-              onChange={(event) => {
-                const newTime = event.target.value || null;
-                const patch: Parameters<typeof updateTask>[1] = { dueTime: newTime };
-                if (task.dueDate && task.reminder?.mode === "relative") {
-                  patch.reminder = reanchorReminder(task.reminder, task.dueDate, newTime ?? undefined);
-                }
-                void save(patch);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Reminder</Label>
+        <div>
+          <p className={sectionLabel}>Reminder</p>
           <ReminderEditor
             value={reminderDraft}
             dueDate={task.dueDate}
@@ -257,7 +351,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
             }}
           />
           {task.reminder && !task.reminder.dismissedAt && (
-            <div className="flex gap-2">
+            <div className="mt-2 flex gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -284,47 +378,41 @@ export function TaskDetail({ task }: TaskDetailProps) {
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Repeat</Label>
-          <RecurrenceEditor
-            value={task.recurringRule}
-            onChange={(rule) => void save({ recurringRule: rule ?? null })}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>Tags</Label>
-          <TagInput
-            value={task.tags}
-            onChange={(tags) => {
-              void save({ tags }).then(() => loadTags());
-            }}
-          />
-        </div>
-
-        <Separator />
-
-        <div className="space-y-1.5">
-          <Label>Subtasks</Label>
+        <div>
+          <div className="mb-2.5 flex items-baseline justify-between">
+            <span className={sectionLabel + " mb-0"}>Subtasks</span>
+            {subtaskTotal > 0 && (
+              <span className="text-xs text-[var(--text-4)]">
+                {subtaskDone} of {subtaskTotal} completed
+              </span>
+            )}
+          </div>
+          {subtaskTotal > 0 && (
+            <div className="mb-3 h-[5px] overflow-hidden rounded-full bg-[var(--track)]">
+              <div
+                className="h-full rounded-full bg-[var(--accent)]"
+                style={{ width: `${subtaskPct}%` }}
+              />
+            </div>
+          )}
           <SubtaskList task={task} />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="detail-notes">Notes</Label>
+        <div>
+          <p className={sectionLabel}>Notes</p>
           <Textarea
-            id="detail-notes"
             rows={3}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             onBlur={() => {
               if (notes !== (task.notes ?? "")) void save({ notes: notes.trim() || null });
             }}
+            className="min-h-[64px] rounded-[9px] border-[var(--border)] bg-[var(--notes-bg)] text-[13px] placeholder:text-[var(--text-5)]"
+            placeholder="Add a note…"
           />
         </div>
 
-        <Separator />
-
-        <dl className="space-y-1 text-xs text-muted-foreground">
+        <dl className="space-y-1 border-t border-[var(--hairline)] pt-4 text-xs text-[var(--text-4)]">
           <div className="flex justify-between">
             <dt>Created</dt>
             <dd>{format(parseISO(task.createdAt), "MMM d, yyyy HH:mm")}</dd>
@@ -341,11 +429,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
           )}
         </dl>
 
-        <Button
-          variant="destructive"
-          className="w-full"
-          onClick={() => setConfirmDelete(true)}
-        >
+        <Button variant="destructive" className="w-full" onClick={() => setConfirmDelete(true)}>
           <Trash2 className="mr-2 h-4 w-4" />
           Delete task
         </Button>
@@ -365,5 +449,47 @@ export function TaskDetail({ task }: TaskDetailProps) {
         }
       />
     </div>
+  );
+}
+
+function StatusPill({
+  task,
+  onChange,
+}: {
+  task: Task;
+  onChange: (status: TaskStatus) => void;
+}) {
+  const completed = task.status === "Completed";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "rounded-[20px] px-[11px] py-1 text-[11px] font-semibold",
+            completed ? "bg-[var(--completed-bg)] text-[var(--completed-text)]" : "bg-[var(--accent-tint)] text-[var(--accent-text)]",
+          )}
+        >
+          {completed ? "Completed" : task.status}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-1.5" align="start">
+        <div className="flex flex-col gap-0.5">
+          {STATUSES.map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => onChange(status)}
+              className={cn(
+                "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]",
+                status === task.status && "font-semibold text-[var(--accent-text)]",
+              )}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

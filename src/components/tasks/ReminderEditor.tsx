@@ -83,7 +83,7 @@ export function ReminderEditor({ value, dueDate, dueTime: _dueTime, onChange }: 
       )}
 
       {value.enabled && value.mode === "absolute" && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           <DatePicker
             ariaLabel="Reminder date"
             value={value.at ? value.at.slice(0, 10) : undefined}

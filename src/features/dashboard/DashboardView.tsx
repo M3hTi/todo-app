@@ -1,34 +1,53 @@
-import { useEffect, useMemo, useState } from "react";
-import { format, parseISO, subDays } from "date-fns";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { AlertCircle, CheckCircle2, Flame, ListTodo, Sun } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { format, isToday, parseISO, subDays } from "date-fns";
+import { AlertCircle, ListTodo, TrendingUp, type LucideIcon } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useCategoryStore } from "@/store/useCategoryStore";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
+import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
+import { NewTaskButton } from "@/components/shared/NewTaskButton";
+import { toggleTaskComplete } from "@/hooks/useTasks";
+import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
+import { cn } from "@/lib/utils";
+
+const GREETING = (() => {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+})();
+
+const RING_RADIUS = 44;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+const FOCUS_LIMIT = 4;
 
 export function DashboardView() {
   const tasks = useTaskStore((state) => state.tasks);
+  const categories = useCategoryStore((state) => state.categories);
+  const navigate = useNavigate();
+  const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
 
   const stats = useMemo(() => {
-    const todayKey = format(new Date(), "yyyy-MM-dd");
-    const completed = tasks.filter((task) => task.status === "Completed");
+    const isOpen = (task: (typeof tasks)[number]): boolean =>
+      task.status !== "Completed" && task.status !== "Cancelled";
 
+    const active = tasks.filter(isOpen);
+    const overdue = tasks.filter(isTaskOverdue);
+    const dueToday = active.filter((task) => task.dueDate && isToday(parseISO(task.dueDate)));
+
+    const activeSubtasks = active.flatMap((task) => task.subtasks);
+    const subtaskDone = activeSubtasks.filter((subtask) => subtask.completed).length;
+    const subtaskTotal = activeSubtasks.length;
+    const progressPct = subtaskTotal > 0 ? Math.round((subtaskDone / subtaskTotal) * 100) : 0;
+
+    const completed = tasks.filter((task) => task.status === "Completed");
     const completedDays = new Set(
       completed
         .filter((task) => task.completedAt)
         .map((task) => format(parseISO(task.completedAt as string), "yyyy-MM-dd")),
     );
-
-    // Streak counts back from today; if nothing is completed yet today, the
-    // streak ending yesterday still counts.
+    const todayKey = format(new Date(), "yyyy-MM-dd");
     let streak = 0;
     let cursor = completedDays.has(todayKey) ? new Date() : subDays(new Date(), 1);
     while (completedDays.has(format(cursor, "yyyy-MM-dd"))) {
@@ -36,169 +55,286 @@ export function DashboardView() {
       cursor = subDays(cursor, 1);
     }
 
-    const last7Days = Array.from({ length: 7 }, (_, index) => {
-      const date = subDays(new Date(), 6 - index);
-      const key = format(date, "yyyy-MM-dd");
-      return {
-        day: format(date, "EEE"),
-        count: completed.filter(
-          (task) =>
-            task.completedAt &&
-            format(parseISO(task.completedAt), "yyyy-MM-dd") === key,
-        ).length,
-      };
-    });
+    const weekAgo = subDays(new Date(), 7);
+    const completedThisWeek = completed.filter(
+      (task) => task.completedAt && parseISO(task.completedAt) >= weekAgo,
+    );
 
     return {
-      total: tasks.length,
-      completedToday: completed.filter(
-        (task) =>
-          task.completedAt &&
-          format(parseISO(task.completedAt), "yyyy-MM-dd") === todayKey,
-      ).length,
-      pending: tasks.filter(
-        (task) => task.status !== "Completed" && task.status !== "Cancelled",
-      ).length,
-      overdue: tasks.filter(isTaskOverdue).length,
-      completionRate:
-        tasks.length > 0 ? Math.round((completed.length / tasks.length) * 100) : 0,
+      active,
+      overdue,
+      dueToday,
+      subtaskDone,
+      subtaskTotal,
+      progressPct,
       streak,
-      last7Days,
+      completedThisWeek,
+      focus: dueToday.slice(0, FOCUS_LIMIT),
+      attentionCount: dueToday.length + overdue.length,
     };
   }, [tasks]);
 
   return (
-    <section className="space-y-4 p-6" aria-label="Dashboard">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard icon={ListTodo} label="Total tasks" value={stats.total} />
-        <StatCard icon={Sun} label="Completed today" value={stats.completedToday} />
-        <StatCard icon={CheckCircle2} label="Pending" value={stats.pending} />
-        <StatCard
-          icon={AlertCircle}
-          label="Overdue"
-          value={stats.overdue}
-          accent={stats.overdue > 0 ? "text-rose-500" : undefined}
-        />
-        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card p-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Completion rate</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums">{stats.completionRate}%</p>
-          </div>
-          <ProgressRing value={stats.completionRate} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex items-start justify-between gap-4 px-8 pb-5 pt-[26px]">
+        <div>
+          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[var(--text-1)]">{GREETING}</h1>
+          <p className="mt-1 text-sm text-[var(--text-3)]">
+            {format(new Date(), "EEEE, MMMM d")} ·{" "}
+            {stats.attentionCount > 0
+              ? `${stats.attentionCount} ${stats.attentionCount === 1 ? "task needs" : "tasks need"} your attention`
+              : "You're all caught up"}
+          </p>
         </div>
-        <StatCard
-          icon={Flame}
-          label="Day streak"
-          value={stats.streak}
-          accent={stats.streak > 0 ? "text-amber-500" : undefined}
-        />
+        <NewTaskButton />
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="mb-3 text-sm font-semibold">Completed last 7 days</h3>
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.last7Days} margin={{ top: 4, right: 4, bottom: 0, left: -28 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                cursor={{ fill: "hsl(var(--muted))" }}
-                contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                  color: "hsl(var(--popover-foreground))",
-                }}
-              />
-              <Bar
-                dataKey="count"
-                name="Completed"
-                fill="hsl(var(--primary))"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={48}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-8 pb-8">
+        <div className="mb-4 grid grid-cols-[1.35fr_1fr_1fr] gap-4">
+          <div
+            className="flex items-center gap-[22px] rounded-2xl p-6 text-white shadow-[0_8px_24px_var(--hero-shadow)]"
+            style={{ background: "linear-gradient(150deg, var(--hero-from), var(--hero-to))" }}
+          >
+            <div className="relative h-[104px] w-[104px] shrink-0">
+              <svg width="104" height="104" viewBox="0 0 104 104">
+                <circle
+                  cx="52"
+                  cy="52"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke="rgba(255,255,255,.22)"
+                  strokeWidth="10"
+                />
+                <circle
+                  cx="52"
+                  cy="52"
+                  r={RING_RADIUS}
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={RING_CIRCUMFERENCE}
+                  strokeDashoffset={RING_CIRCUMFERENCE - (stats.progressPct / 100) * RING_CIRCUMFERENCE}
+                  transform="rotate(-90 52 52)"
+                  style={{ transition: "stroke-dashoffset 700ms ease-out" }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-[26px] font-bold leading-none">{stats.progressPct}%</div>
+                <div className="mt-0.5 text-[11px] opacity-80">done</div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[15px] font-semibold">Today's progress</div>
+              <div className="text-[13px] leading-[1.5] opacity-90">
+                {stats.subtaskTotal > 0 ? (
+                  <>
+                    You've completed <b>{stats.subtaskDone} of {stats.subtaskTotal}</b> steps
+                    across your active tasks.{" "}
+                    {stats.subtaskDone < stats.subtaskTotal
+                      ? `Finish ${stats.subtaskTotal - stats.subtaskDone} more to stay on track.`
+                      : "Nice work — all caught up."}
+                  </>
+                ) : (
+                  "Break a task into subtasks to track progress here."
+                )}
+              </div>
+              {stats.streak > 0 && (
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-[20px] bg-white/[.18] px-[11px] py-1.5 text-xs font-semibold">
+                  🔥 {stats.streak}-day streak
+                </div>
+              )}
+            </div>
+          </div>
+
+          <StatCard
+            icon={ListTodo}
+            iconBg="var(--accent-tint)"
+            iconColor="var(--accent-text)"
+            label="Active tasks"
+            value={stats.active.length}
+            deltaText={stats.dueToday.length > 0 ? `${stats.dueToday.length} due today` : "Nothing due today"}
+            deltaColor={stats.dueToday.length > 0 ? "var(--warning-text)" : "var(--text-3)"}
+          />
+
+          <StatCard
+            icon={AlertCircle}
+            iconBg="var(--warning-tint)"
+            iconColor="var(--warning-text)"
+            label="Overdue"
+            value={stats.overdue.length}
+            valueColor={stats.overdue.length === 0 ? "var(--positive-text)" : undefined}
+            deltaText={
+              stats.overdue.length > 0
+                ? `${stats.overdue.length} need${stats.overdue.length === 1 ? "s" : ""} attention`
+                : "All caught up 🎉"
+            }
+            deltaColor={stats.overdue.length > 0 ? "var(--warning-text)" : "var(--positive-text)"}
+          />
+        </div>
+
+        <div className="grid grid-cols-[1.35fr_1fr] gap-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <div className="mb-3.5 flex items-center justify-between">
+              <span className="text-[15px] font-semibold text-[var(--text-1)]">Focus for today</span>
+              <button
+                type="button"
+                onClick={() => navigate("/today")}
+                className="text-[13px] font-semibold text-[var(--accent-text)] hover:underline"
+              >
+                View all
+              </button>
+            </div>
+
+            {stats.focus.length === 0 ? (
+              <p className="py-6 text-center text-[13px] text-[var(--text-4b)]">
+                Nothing due today. Enjoy the calm.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {stats.focus.map((task) => {
+                  const category = categories.find((c) => c.id === task.categoryId);
+                  const subtaskTotal = task.subtasks.length;
+                  const subtaskDone = task.subtasks.filter((s) => s.completed).length;
+                  return (
+                    <div
+                      key={task.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setSelectedTask(task.id);
+                        navigate("/today");
+                      }}
+                      className="flex cursor-pointer gap-3 rounded-[11px] border border-[var(--hairline)] p-[13px] hover:bg-[var(--surface-hover-row)]"
+                    >
+                      <TaskCheckbox
+                        checked={task.status === "Completed"}
+                        onToggle={() => void toggleTaskComplete(task)}
+                        size={19}
+                        className="mt-px"
+                        aria-label={`Mark ${task.title} complete`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold text-[var(--text-1)]">
+                            {task.title}
+                          </span>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-[20px] px-2 py-0.5 text-[10.5px] font-semibold",
+                              PRIORITY_PILL_CLASSES[task.priority],
+                            )}
+                          >
+                            {task.priority}
+                          </span>
+                        </div>
+                        <div className="mt-[7px] flex items-center gap-3 text-xs text-[var(--text-3)]">
+                          <span className="font-semibold text-[var(--accent-text)]">Today</span>
+                          {category && (
+                            <span className="flex items-center gap-[5px]">
+                              <span
+                                className="h-[7px] w-[7px] rounded-full"
+                                style={{ backgroundColor: categoryDotColor(category.color) }}
+                              />
+                              {category.name}
+                            </span>
+                          )}
+                        </div>
+                        {subtaskTotal > 0 && (
+                          <div className="mt-[9px] flex items-center gap-2">
+                            <span className="text-[11px] text-[var(--text-4)]">
+                              {subtaskDone}/{subtaskTotal}
+                            </span>
+                            <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-[var(--track)]">
+                              <div
+                                className="h-full bg-[var(--accent)]"
+                                style={{ width: `${Math.round((subtaskDone / subtaskTotal) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <span className="mb-1 text-[15px] font-semibold text-[var(--text-1)]">This week</span>
+            {stats.completedThisWeek.length > 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center text-center">
+                <div className="text-[34px] font-bold leading-none text-[var(--text-1)]">
+                  {stats.completedThisWeek.length}
+                </div>
+                <div className="mt-1.5 text-[12.5px] font-medium text-[var(--positive-text)]">
+                  tasks completed this week
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center px-2 py-3.5 text-center">
+                <div className="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-tint)]">
+                  <TrendingUp className="h-7 w-7 text-[var(--accent-text)]" strokeWidth={2} />
+                </div>
+                <div className="mb-1 text-[14.5px] font-semibold text-[var(--text-1)]">
+                  No completed tasks yet
+                </div>
+                <p className="max-w-[210px] text-[12.5px] leading-[1.5] text-[var(--text-4b)]">
+                  Check off your first task and your weekly streak will start showing up here.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
 interface StatCardProps {
   icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
   label: string;
   value: number;
-  accent?: string;
+  valueColor?: string;
+  deltaText: string;
+  deltaColor: string;
 }
 
-function StatCard({ icon: Icon, label, value, accent }: StatCardProps) {
+function StatCard({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  label,
+  value,
+  valueColor,
+  deltaText,
+  deltaColor,
+}: StatCardProps) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className={`h-4 w-4 ${accent ?? ""}`} aria-hidden="true" />
-        <p className="text-xs">{label}</p>
+    <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-medium text-[var(--text-3)]">{label}</span>
+        <span
+          className="flex h-[30px] w-[30px] items-center justify-center rounded-lg"
+          style={{ backgroundColor: iconBg, color: iconColor }}
+        >
+          <Icon className="h-4 w-4" strokeWidth={2} />
+        </span>
       </div>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${accent ?? ""}`}>{value}</p>
+      <div>
+        <div
+          className="text-[34px] font-bold leading-none"
+          style={{ color: valueColor ?? "var(--text-1)" }}
+        >
+          {value}
+        </div>
+        <div className="mt-1.5 text-[12.5px] font-medium" style={{ color: deltaColor }}>
+          {deltaText}
+        </div>
+      </div>
     </div>
-  );
-}
-
-const RING_RADIUS = 26;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
-function ProgressRing({ value }: { value: number }) {
-  // Start fully empty, then animate to the target on mount via CSS transition.
-  const [offset, setOffset] = useState(RING_CIRCUMFERENCE);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() =>
-      setOffset(RING_CIRCUMFERENCE - (value / 100) * RING_CIRCUMFERENCE),
-    );
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
-      role="img"
-      aria-label={`Completion rate ${value}%`}
-    >
-      <circle
-        cx="32"
-        cy="32"
-        r={RING_RADIUS}
-        fill="none"
-        stroke="hsl(var(--muted))"
-        strokeWidth="6"
-      />
-      <circle
-        cx="32"
-        cy="32"
-        r={RING_RADIUS}
-        fill="none"
-        stroke="hsl(var(--primary))"
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={RING_CIRCUMFERENCE}
-        strokeDashoffset={offset}
-        transform="rotate(-90 32 32)"
-        style={{ transition: "stroke-dashoffset 700ms ease-out" }}
-      />
-    </svg>
   );
 }
