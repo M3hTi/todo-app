@@ -139,7 +139,7 @@ export function SubtaskList({ task }: SubtaskListProps) {
       </DndContext>
 
       <form
-        className="mt-2.5 flex items-center gap-2 rounded-[9px] border border-dashed border-[#d8d8e0] px-3 py-[9px] text-[#9a9aa6] focus-within:border-[#4f46e5] focus-within:text-[#4f46e5]"
+        className="mt-2.5 flex items-center gap-2 rounded-[9px] border border-dashed border-[var(--dashed-border)] px-3 py-[9px] text-[var(--text-4)] focus-within:border-[var(--accent-text)] focus-within:text-[var(--accent-text)]"
         onSubmit={(event) => {
           event.preventDefault();
           void handleAdd();
@@ -150,7 +150,7 @@ export function SubtaskList({ task }: SubtaskListProps) {
           value={newTitle}
           onChange={(event) => setNewTitle(event.target.value)}
           placeholder="Add a subtask…"
-          className="w-full min-w-0 flex-1 bg-transparent text-[13px] text-[#1c1b22] placeholder:text-[#9a9aa6] focus-visible:outline-none"
+          className="w-full min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-1)] placeholder:text-[var(--text-4)] focus-visible:outline-none"
           aria-label="New subtask title"
         />
       </form>
@@ -181,13 +181,13 @@ function SortableSubtaskRow({ subtask, onToggle, onRename, onDelete }: SortableS
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group flex items-start gap-2 rounded-[7px] px-0.5 py-[7px] hover:bg-[#fafafb]",
-        isDragging && "z-10 bg-[#fafafb] shadow-sm",
+        "group flex items-start gap-2 rounded-[7px] px-0.5 py-[7px] hover:bg-[var(--surface-hover-row)]",
+        isDragging && "z-10 bg-[var(--surface-hover-row)] shadow-sm",
       )}
     >
       <button
         type="button"
-        className="mt-1 cursor-grab touch-none text-[#cfcfda] hover:text-[#9a9aa6] focus-visible:outline-none"
+        className="mt-1 cursor-grab touch-none text-[var(--checkbox-border)] hover:text-[var(--text-4)] focus-visible:outline-none"
         aria-label={`Reorder ${subtask.title}`}
         {...attributes}
         {...listeners}
@@ -210,7 +210,7 @@ function SortableSubtaskRow({ subtask, onToggle, onRename, onDelete }: SortableS
         }}
         className={cn(
           "min-w-0 flex-1 bg-transparent text-[13px] leading-[1.45] focus-visible:outline-none",
-          subtask.completed ? "text-[#9a9aa6] line-through" : "text-[#1c1b22]",
+          subtask.completed ? "text-[var(--text-done)] line-through" : "text-[var(--text-1)]",
         )}
         aria-label={`Subtask title: ${subtask.title}`}
       />
@@ -218,7 +218,7 @@ function SortableSubtaskRow({ subtask, onToggle, onRename, onDelete }: SortableS
         type="button"
         aria-label={`Delete subtask ${subtask.title}`}
         onClick={() => void onDelete()}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:text-[#ef4444] group-hover:opacity-100 focus-visible:opacity-100"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity hover:text-[var(--warning-text)] group-hover:opacity-100 focus-visible:opacity-100"
       >
         <Trash2 className="h-3 w-3" />
       </button>

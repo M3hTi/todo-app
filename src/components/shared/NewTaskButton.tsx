@@ -14,7 +14,7 @@ export function NewTaskButton({ className }: NewTaskButtonProps) {
       type="button"
       onClick={() => setTaskFormOpen(true)}
       className={cn(
-        "flex shrink-0 items-center gap-2 rounded-[9px] bg-[#4f46e5] px-[17px] py-[11px] text-sm font-semibold text-white shadow-[0_1px_2px_rgba(79,70,229,.4)] hover:bg-[#4338ca]",
+        "flex shrink-0 items-center gap-2 rounded-[9px] bg-[var(--accent)] px-[17px] py-[11px] text-sm font-semibold text-white shadow-[0_1px_2px_var(--button-shadow)] hover:bg-[var(--accent-hover)]",
         className,
       )}
     >

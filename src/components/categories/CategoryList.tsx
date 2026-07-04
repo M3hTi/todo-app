@@ -6,6 +6,7 @@ import type { Category } from "@/types";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { CategoryForm } from "@/components/categories/CategoryForm";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { categoryDotColor } from "@/lib/taskVisuals";
 import { cn } from "@/lib/utils";
 
 export function CategoryList() {
@@ -20,13 +21,13 @@ export function CategoryList() {
 
   return (
     <div>
-      <div className="mb-2.5 mt-6 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9a9aa6]">
+      <div className="mb-2.5 mt-6 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-4)]">
         Categories
         <button
           type="button"
           aria-label="New category"
           onClick={() => setCreateOpen(true)}
-          className="flex h-4 w-4 items-center justify-center text-[#b8b8c2] hover:text-[#4f46e5]"
+          className="flex h-4 w-4 items-center justify-center text-[var(--text-4)] hover:text-[var(--accent-text)]"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -39,15 +40,15 @@ export function CategoryList() {
               to={`/category/${category.id}`}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2.5 rounded-[8px] py-1 pl-1 pr-12 text-sm text-[#3f3f4a] transition-colors",
-                  "hover:bg-[#f5f5f8]",
-                  isActive && "font-semibold text-[#4f46e5]",
+                  "flex items-center gap-2.5 rounded-[8px] py-1 pl-1 pr-12 text-sm text-[var(--text-2)] transition-colors",
+                  "hover:bg-[var(--surface-hover-nav)]",
+                  isActive && "font-semibold text-[var(--accent-text)]",
                 )
               }
             >
               <span
                 className="h-[9px] w-[9px] shrink-0 rounded-full"
-                style={{ backgroundColor: category.color }}
+                style={{ backgroundColor: categoryDotColor(category.color) }}
               />
               <span className="truncate">{category.name}</span>
             </NavLink>
@@ -56,7 +57,7 @@ export function CategoryList() {
                 type="button"
                 aria-label={`Rename ${category.name}`}
                 onClick={() => setEditing(category)}
-                className="flex h-5 w-5 items-center justify-center rounded text-[#9a9aa6] hover:text-[#4f46e5]"
+                className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-4)] hover:text-[var(--accent-text)]"
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -64,7 +65,7 @@ export function CategoryList() {
                 type="button"
                 aria-label={`Delete ${category.name}`}
                 onClick={() => setDeleting(category)}
-                className="flex h-5 w-5 items-center justify-center rounded text-[#9a9aa6] hover:text-[#ef4444]"
+                className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-4)] hover:text-[var(--warning-text)]"
               >
                 <Trash2 className="h-3 w-3" />
               </button>

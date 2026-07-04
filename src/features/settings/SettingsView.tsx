@@ -458,19 +458,20 @@ export function SettingsView() {
 
   return (
     <section
-      className="mx-auto w-full max-w-2xl flex-1 space-y-8 overflow-y-auto p-6"
+      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
       aria-label="Settings"
     >
+      <div className="mx-auto max-w-[720px] space-y-8 px-10 py-8">
       <div>
         <h3 className="text-base font-semibold">Appearance</h3>
         <Separator className="my-3" />
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-6">
           <Label>Theme</Label>
           <Select
             value={settings.theme}
             onValueChange={(value) => void updateSetting("theme", value as Theme)}
           >
-            <SelectTrigger className="w-44" aria-label="Theme">
+            <SelectTrigger className="w-[200px]" aria-label="Theme">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -489,7 +490,7 @@ export function SettingsView() {
         <p className="text-sm text-muted-foreground">Applied to newly created tasks.</p>
         <Separator className="my-3" />
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-6">
             <Label>Default category</Label>
             <Select
               value={settings.defaultCategoryId ?? "none"}
@@ -497,7 +498,7 @@ export function SettingsView() {
                 void updateSetting("defaultCategoryId", value === "none" ? undefined : value)
               }
             >
-              <SelectTrigger className="w-44" aria-label="Default category">
+              <SelectTrigger className="w-[200px]" aria-label="Default category">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -510,7 +511,7 @@ export function SettingsView() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-6">
             <Label>Default priority</Label>
             <Select
               value={settings.defaultPriority}
@@ -518,7 +519,7 @@ export function SettingsView() {
                 void updateSetting("defaultPriority", value as TaskPriority)
               }
             >
-              <SelectTrigger className="w-44" aria-label="Default priority">
+              <SelectTrigger className="w-[200px]" aria-label="Default priority">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -530,7 +531,7 @@ export function SettingsView() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-6">
             <Label>Default reminder</Label>
             <Select
               value={String(settings.defaultReminderMinutesBefore)}
@@ -538,7 +539,7 @@ export function SettingsView() {
                 void updateSetting("defaultReminderMinutesBefore", Number(value))
               }
             >
-              <SelectTrigger className="w-44" aria-label="Default reminder">
+              <SelectTrigger className="w-[200px]" aria-label="Default reminder">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -556,7 +557,7 @@ export function SettingsView() {
       <div>
         <h3 className="text-base font-semibold">Notifications</h3>
         <Separator className="my-3" />
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <Checkbox
               id="notifications-enabled"
@@ -565,7 +566,7 @@ export function SettingsView() {
             />
             <Label htmlFor="notifications-enabled">Enable reminder notifications</Label>
           </div>
-          <span className="text-xs text-muted-foreground">
+          <span className="w-[200px] text-right text-xs text-muted-foreground">
             System permission:{" "}
             {permissionGranted === null
               ? "checking…"
@@ -586,7 +587,7 @@ export function SettingsView() {
         <h3 className="text-base font-semibold">Window &amp; startup</h3>
         <Separator className="my-3" />
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-6">
             <div>
               <Label>When I close the window</Label>
               <p className="text-xs text-muted-foreground">
@@ -598,7 +599,7 @@ export function SettingsView() {
               value={settings.closeBehavior}
               onValueChange={(value) => void updateSetting("closeBehavior", value as CloseBehavior)}
             >
-              <SelectTrigger className="w-44" aria-label="When I close the window">
+              <SelectTrigger className="w-[200px] shrink-0" aria-label="When I close the window">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -651,14 +652,14 @@ export function SettingsView() {
       <div>
         <h3 className="text-base font-semibold text-destructive">Danger Zone</h3>
         <Separator className="my-3" />
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/40 p-3">
+        <div className="flex items-center justify-between gap-6 rounded-lg border border-destructive/40 p-3">
           <div>
             <p className="text-sm font-medium">Reset all data</p>
             <p className="text-xs text-muted-foreground">
               Deletes every task, category, tag and setting, then restores defaults.
             </p>
           </div>
-          <Button variant="destructive" onClick={() => setResetOpen(true)}>
+          <Button variant="destructive" className="shrink-0" onClick={() => setResetOpen(true)}>
             Reset all data
           </Button>
         </div>
@@ -680,6 +681,7 @@ export function SettingsView() {
             </dd>
           </div>
         </dl>
+      </div>
       </div>
 
       <ConfirmDialog

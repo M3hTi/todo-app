@@ -19,7 +19,7 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { NewTaskButton } from "@/components/shared/NewTaskButton";
-import { PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
+import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { cn } from "@/lib/utils";
 
 const WEEKDAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
@@ -75,13 +75,13 @@ export function CalendarView() {
   );
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-4 px-8 pb-5 pt-[26px]">
         <div>
-          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[#1c1b22]">
+          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[var(--text-1)]">
             {format(month, "MMMM yyyy")}
           </h1>
-          <p className="mt-1 text-sm text-[#6c6c78]">
+          <p className="mt-1 text-sm text-[var(--text-3)]">
             {scheduledThisMonth} {scheduledThisMonth === 1 ? "task" : "tasks"} scheduled this month
           </p>
         </div>
@@ -91,14 +91,14 @@ export function CalendarView() {
               type="button"
               aria-label="Previous month"
               onClick={() => setMonth((current) => subMonths(current, 1))}
-              className="flex h-[34px] w-[34px] items-center justify-center rounded-l-lg border border-[#ececf1] bg-white text-[#6c6c78] hover:bg-[#fafafb]"
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-l-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-3)] hover:bg-[var(--surface-hover-row)]"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
             </button>
             <button
               type="button"
               onClick={() => setMonth(startOfMonth(new Date()))}
-              className="h-[34px] border-y border-[#ececf1] bg-white px-3.5 text-[13px] font-semibold text-[#3f3f4a] hover:bg-[#fafafb]"
+              className="h-[34px] border-y border-[var(--border)] bg-[var(--surface-raised)] px-3.5 text-[13px] font-semibold text-[var(--text-2)] hover:bg-[var(--surface-hover-row)]"
             >
               Today
             </button>
@@ -106,7 +106,7 @@ export function CalendarView() {
               type="button"
               aria-label="Next month"
               onClick={() => setMonth((current) => addMonths(current, 1))}
-              className="flex h-[34px] w-[34px] items-center justify-center rounded-r-lg border border-[#ececf1] bg-white text-[#6c6c78] hover:bg-[#fafafb]"
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-r-lg border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-3)] hover:bg-[var(--surface-hover-row)]"
             >
               <ChevronRight className="h-4 w-4" strokeWidth={2.2} />
             </button>
@@ -116,14 +116,14 @@ export function CalendarView() {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 px-8 pb-8">
-        <div className="flex min-w-0 flex-1 flex-col rounded-2xl border border-[#ececf1] bg-white p-2">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-2">
           <div className="grid grid-cols-7">
             {WEEKDAY_LABELS.map((label, index) => (
               <div
                 key={label}
                 className={cn(
                   "py-2.5 pb-3 text-center text-[11px] font-semibold tracking-[.06em]",
-                  index === 0 || index === 6 ? "text-[#c2c2cc]" : "text-[#9a9aa6]",
+                  index === 0 || index === 6 ? "text-[var(--cal-weekday-weekend-text)]" : "text-[var(--text-4)]",
                 )}
               >
                 {label}
@@ -144,18 +144,18 @@ export function CalendarView() {
                   key={dayKey}
                   className={cn(
                     "flex min-h-0 flex-col gap-1 overflow-hidden rounded-[10px] p-2 pb-1.5",
-                    inMonth ? (weekend ? "bg-[#fafafb]" : "bg-white") : "bg-[#fbfbfc]",
-                    today && "shadow-[inset_0_0_0_1.5px_#4f46e5]",
+                    inMonth ? (weekend ? "bg-[var(--cal-weekend-bg)]" : "bg-[var(--surface-raised)]") : "bg-[var(--cal-other-month-bg)]",
+                    today && "shadow-[inset_0_0_0_1.5px_var(--accent-text)]",
                   )}
                 >
                   <div
                     className={cn(
                       "flex h-6 w-6 items-center justify-center rounded-full text-[13px]",
                       today
-                        ? "bg-[#4f46e5] font-bold text-white"
+                        ? "bg-[var(--accent)] font-bold text-white"
                         : inMonth
-                          ? "font-medium text-[#3f3f4a]"
-                          : "font-medium text-[#c8c8d2]",
+                          ? "font-medium text-[var(--text-2)]"
+                          : "font-medium text-[var(--cal-other-month-text)]",
                     )}
                   >
                     {format(day, "d")}
@@ -169,20 +169,24 @@ export function CalendarView() {
                           type="button"
                           onClick={() => openTask(task.id)}
                           className={cn(
-                            "flex items-center gap-1.5 truncate rounded-[6px] bg-[#f1ecfc] px-1.5 py-1 text-left text-[11px] font-medium text-[#5b3aa8]",
+                            "flex items-center gap-1.5 truncate rounded-[6px] bg-[var(--cal-event-bg)] px-1.5 py-1 text-left text-[11px] font-medium text-[var(--cal-event-text)]",
                             task.status === "Completed" && "line-through opacity-60",
                           )}
                         >
                           <span
                             className="h-1.5 w-1.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: category?.color ?? "#5b3aa8" }}
+                            style={{
+                              backgroundColor: category
+                                ? categoryDotColor(category.color)
+                                : "var(--cal-event-text)",
+                            }}
                           />
                           <span className="truncate">{task.title}</span>
                         </button>
                       );
                     })}
                     {dayTasks.length > MAX_CHIPS && (
-                      <p className="px-1.5 text-[10px] text-[#9a9aa6]">
+                      <p className="px-1.5 text-[10px] text-[var(--text-4)]">
                         +{dayTasks.length - MAX_CHIPS} more
                       </p>
                     )}
@@ -193,24 +197,24 @@ export function CalendarView() {
           </div>
         </div>
 
-        <div className="flex w-[300px] shrink-0 flex-col rounded-2xl border border-[#ececf1] bg-white p-5">
-          <span className="mb-1 text-[15px] font-semibold text-[#1c1b22]">Upcoming</span>
-          <p className="mb-4 text-[12.5px] text-[#8a8a96]">Tasks with a due date</p>
+        <div className="flex min-h-0 w-[300px] shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+          <span className="mb-1 text-[15px] font-semibold text-[var(--text-1)]">Upcoming</span>
+          <p className="mb-4 text-[12.5px] text-[var(--text-4b)]">Tasks with a due date</p>
 
           {upcoming.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-2 py-4.5 text-center">
-              <div className="mb-3.5 flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-[#eef0fe]">
-                <MapPin className="h-[26px] w-[26px] text-[#4f46e5]" strokeWidth={2} />
+              <div className="mb-3.5 flex h-[54px] w-[54px] items-center justify-center rounded-2xl bg-[var(--accent-tint)]">
+                <MapPin className="h-[26px] w-[26px] text-[var(--accent-text)]" strokeWidth={2} />
               </div>
-              <div className="mb-1.5 text-sm font-semibold text-[#1c1b22]">
+              <div className="mb-1.5 text-sm font-semibold text-[var(--text-1)]">
                 Nothing else on the calendar
               </div>
-              <p className="max-w-[220px] text-[12.5px] leading-[1.5] text-[#8a8a96]">
+              <p className="max-w-[220px] text-[12.5px] leading-[1.5] text-[var(--text-4b)]">
                 Add a due date to any task and it'll land here so you can plan ahead.
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5 overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overflow-x-hidden">
               {upcoming.map((task) => {
                 const category = categories.find((c) => c.id === task.categoryId);
                 const overdue = isTaskOverdue(task);
@@ -226,21 +230,23 @@ export function CalendarView() {
                     key={task.id}
                     type="button"
                     onClick={() => openTask(task.id)}
-                    className="flex gap-[11px] rounded-[11px] border border-[#f0f0f4] p-[13px] text-left hover:bg-[#fafafb]"
+                    className="flex gap-[11px] rounded-[11px] border border-[var(--hairline)] p-[13px] text-left hover:bg-[var(--surface-hover-row)]"
                   >
                     <span
                       className="mt-[5px] h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: category?.color ?? "#9a9aa6" }}
+                      style={{
+                        backgroundColor: category ? categoryDotColor(category.color) : "var(--text-4)",
+                      }}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13.5px] font-semibold leading-[1.35] text-[#1c1b22]">
+                      <div className="truncate text-[13.5px] font-semibold leading-[1.35] text-[var(--text-1)]">
                         {task.title}
                       </div>
                       <div className="mt-[7px] flex items-center gap-2 text-[11.5px]">
                         <span
                           className={cn(
                             "font-medium",
-                            overdue ? "text-[#ef4444]" : "text-[#6c6c78]",
+                            overdue ? "text-[var(--warning-text)]" : "text-[var(--text-3)]",
                           )}
                         >
                           {dateLabel}

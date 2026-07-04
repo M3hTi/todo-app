@@ -58,8 +58,12 @@ export function DatePicker({
           {value ? format(parseISO(value), "MMM d, yyyy") : placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex flex-wrap gap-1 border-b p-2">
+      <PopoverContent
+        className="w-[316px] rounded-xl border-[var(--border)] bg-[var(--surface-raised)] p-[18px] shadow-[0_8px_28px_rgba(0,0,0,.45)]"
+        align="end"
+        collisionPadding={12}
+      >
+        <div className="mb-3 flex flex-wrap gap-1.5 border-b border-[var(--border)] pb-3">
           {CHIPS.map(({ chip, label }) => (
             <Button
               key={chip}

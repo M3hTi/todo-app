@@ -33,9 +33,9 @@ const NAV_ITEMS = [
 
 const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
   cn(
-    "flex items-center gap-3 rounded-[8px] px-3 py-[9px] text-sm text-[#3f3f4a] transition-colors",
-    "hover:bg-[#f5f5f8]",
-    isActive && "bg-[#eef0fe] font-semibold text-[#4f46e5]",
+    "flex items-center gap-3 rounded-[8px] px-3 py-[9px] text-sm text-[var(--text-2)] transition-colors",
+    "hover:bg-[var(--surface-hover-nav)]",
+    isActive && "bg-[var(--accent-tint)] font-semibold text-[var(--accent-text)]",
   );
 
 export function Sidebar() {
@@ -54,8 +54,8 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex w-[246px] shrink-0 flex-col border-r border-[#ececf1] bg-white px-4 pb-4 pt-[22px]">
-      <div className="px-2 pb-5 text-[20px] font-bold text-[#1c1b22]">Todo App</div>
+    <aside className="flex min-h-0 w-[246px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface-sidebar)] px-4 pb-4 pt-[22px]">
+      <div className="px-2 pb-5 text-[20px] font-bold text-[var(--text-1)]">Todo App</div>
 
       <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
@@ -69,11 +69,11 @@ export function Sidebar() {
       <ScrollArea className="-mr-4 mt-1 flex-1 pr-4">
         <CategoryList />
 
-        <div className="mb-2.5 mt-6 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-[#9a9aa6]">
+        <div className="mb-2.5 mt-6 flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-[var(--text-4)]">
           Tags
         </div>
         {tags.length === 0 ? (
-          <p className="px-2 py-1 text-xs text-[#9a9aa6]">Tags you add to tasks appear here.</p>
+          <p className="px-2 py-1 text-xs text-[var(--text-4)]">Tags you add to tasks appear here.</p>
         ) : (
           <ul className="flex flex-wrap gap-1.5 px-2 pb-2">
             {tags.map((tag) => (
@@ -83,10 +83,10 @@ export function Sidebar() {
                   onClick={() => toggleTagFilter(tag.name)}
                   className={cn(
                     "flex items-center gap-1 rounded-l-full border py-0.5 pl-2 pr-1 text-xs transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-text)]",
                     filterTags.includes(tag.name)
-                      ? "border-[#4f46e5] bg-[#eef0fe] text-[#4f46e5]"
-                      : "border-[#ececf1] text-[#3f3f4a] hover:bg-[#f5f5f8]",
+                      ? "border-[var(--accent-text)] bg-[var(--accent-tint)] text-[var(--accent-text)]"
+                      : "border-[var(--border)] text-[var(--text-2)] hover:bg-[var(--surface-hover-nav)]",
                   )}
                   aria-pressed={filterTags.includes(tag.name)}
                 >
@@ -99,10 +99,10 @@ export function Sidebar() {
                   onClick={() => setDeletingTag(tag)}
                   className={cn(
                     "rounded-r-full border border-l-0 py-0.5 pr-1.5 pl-0.5 text-xs transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4f46e5]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-text)]",
                     filterTags.includes(tag.name)
-                      ? "border-[#4f46e5] bg-[#eef0fe] text-[#4f46e5]"
-                      : "border-[#ececf1] text-[#9a9aa6] hover:text-[#ef4444]",
+                      ? "border-[var(--accent-text)] bg-[var(--accent-tint)] text-[var(--accent-text)]"
+                      : "border-[var(--border)] text-[var(--text-4)] hover:text-[var(--warning-text)]",
                   )}
                 >
                   <X className="h-3 w-3" />
@@ -117,8 +117,8 @@ export function Sidebar() {
         to="/settings"
         className={({ isActive }) =>
           cn(
-            "mt-3 flex items-center gap-3 border-t border-[#ececf1] px-3 pb-0 pt-[14px] text-sm text-[#3f3f4a]",
-            isActive && "font-semibold text-[#4f46e5]",
+            "mt-3 flex items-center gap-3 border-t border-[var(--border)] px-3 pb-0 pt-[14px] text-sm text-[var(--text-2)]",
+            isActive && "font-semibold text-[var(--accent-text)]",
           )
         }
       >

@@ -8,7 +8,7 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
-import { PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
+import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { RecurrenceEditor, TagInput } from "@/components/tasks/TaskForm";
 import { ReminderEditor } from "@/components/tasks/ReminderEditor";
 import {
@@ -37,10 +37,10 @@ const DATE_CHIPS: { chip: QuickChip; label: string }[] = [
   { chip: "nextWeek", label: "Next week" },
 ];
 
-const sectionLabel = "mb-2 text-[13.5px] font-semibold text-[#1c1b22]";
+const sectionLabel = "mb-2 text-[13.5px] font-semibold text-[var(--text-1)]";
 const metaRow =
-  "flex items-center justify-between border-b border-[#f0f0f4] py-[11px] text-left";
-const metaLabel = "text-[12.5px] text-[#8a8a96]";
+  "flex items-center justify-between border-b border-[var(--hairline)] py-[11px] text-left";
+const metaLabel = "text-[12.5px] text-[var(--text-4b)]";
 
 interface TaskDetailProps {
   task: Task;
@@ -89,14 +89,14 @@ export function TaskDetail({ task }: TaskDetailProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-[22px] pt-[22px]">
-        <span className="text-[13px] font-semibold tracking-[.04em] text-[#9a9aa6]">
+        <span className="text-[13px] font-semibold tracking-[.04em] text-[var(--text-4)]">
           TASK DETAILS
         </span>
         <button
           type="button"
           aria-label="Close details"
           onClick={() => setSelectedTask(null)}
-          className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#9a9aa6] hover:bg-[#f5f5f8]"
+          className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[var(--text-4)] hover:bg-[var(--surface-hover-nav)]"
         >
           <X className="h-4 w-4" />
         </button>
@@ -125,12 +125,12 @@ export function TaskDetail({ task }: TaskDetailProps) {
             aria-label="Task title"
             className={cn(
               "mt-2.5 w-full border-none bg-transparent text-[17px] font-bold leading-[1.35] outline-none",
-              completed ? "text-[#9a9aa6] line-through" : "text-[#1c1b22]",
+              completed ? "text-[var(--text-done)] line-through" : "text-[var(--text-1)]",
             )}
           />
         </div>
 
-        <div className="flex flex-col border-t border-[#f0f0f4]">
+        <div className="flex flex-col border-t border-[var(--hairline)]">
           <div className={metaRow}>
             <span className={metaLabel}>Due date</span>
             <Popover>
@@ -139,7 +139,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                   type="button"
                   className={cn(
                     "text-[13px] font-medium",
-                    dueToday && !completed ? "text-[#4f46e5]" : "text-[#1c1b22]",
+                    dueToday && !completed ? "text-[var(--accent-text)]" : "text-[var(--text-1)]",
                   )}
                 >
                   {task.dueDate
@@ -149,8 +149,12 @@ export function TaskDetail({ task }: TaskDetailProps) {
                     : "Add date"}
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <div className="flex flex-wrap gap-1 border-b p-2">
+              <PopoverContent
+                className="w-[316px] rounded-xl border-[var(--border)] bg-[var(--surface-raised)] p-[18px] shadow-[0_8px_28px_rgba(0,0,0,.45)]"
+                align="end"
+                collisionPadding={12}
+              >
+                <div className="mb-3 flex flex-wrap gap-1.5 border-b border-[var(--border)] pb-3">
                   {DATE_CHIPS.map(({ chip, label }) => (
                     <Button
                       key={chip}
@@ -227,7 +231,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                       type="button"
                       onClick={() => void save({ priority })}
                       className={cn(
-                        "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[#f5f5f8]",
+                        "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]",
                         priority === task.priority && "font-semibold",
                       )}
                     >
@@ -252,12 +256,12 @@ export function TaskDetail({ task }: TaskDetailProps) {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-[7px] text-[13px] font-medium text-[#1c1b22]"
+                  className="flex items-center gap-[7px] text-[13px] font-medium text-[var(--text-1)]"
                 >
                   {category && (
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: category.color }}
+                      style={{ backgroundColor: categoryDotColor(category.color) }}
                     />
                   )}
                   {category?.name ?? "No category"}
@@ -268,7 +272,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                   <button
                     type="button"
                     onClick={() => void save({ categoryId: null })}
-                    className="rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[#f5f5f8]"
+                    className="rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]"
                   >
                     No category
                   </button>
@@ -277,11 +281,11 @@ export function TaskDetail({ task }: TaskDetailProps) {
                       key={option.id}
                       type="button"
                       onClick={() => void save({ categoryId: option.id })}
-                      className="flex items-center gap-[7px] rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[#f5f5f8]"
+                      className="flex items-center gap-[7px] rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]"
                     >
                       <span
                         className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: option.color }}
+                        style={{ backgroundColor: categoryDotColor(option.color) }}
                       />
                       {option.name}
                     </button>
@@ -295,7 +299,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
             <span className={metaLabel}>Repeat</span>
             <Popover>
               <PopoverTrigger asChild>
-                <button type="button" className="text-[13px] text-[#6c6c78]">
+                <button type="button" className="text-[13px] text-[var(--text-3)]">
                   {task.recurringRule ? task.recurringRule.frequency : "Does not repeat"}
                 </button>
               </PopoverTrigger>
@@ -320,7 +324,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                 void save({ description: description.trim() || null });
               }
             }}
-            className="rounded-[9px] border-[#ececf1] text-[13px]"
+            className="rounded-[9px] border-[var(--border)] text-[13px]"
             placeholder="Add a description…"
           />
         </div>
@@ -378,15 +382,15 @@ export function TaskDetail({ task }: TaskDetailProps) {
           <div className="mb-2.5 flex items-baseline justify-between">
             <span className={sectionLabel + " mb-0"}>Subtasks</span>
             {subtaskTotal > 0 && (
-              <span className="text-xs text-[#9a9aa6]">
+              <span className="text-xs text-[var(--text-4)]">
                 {subtaskDone} of {subtaskTotal} completed
               </span>
             )}
           </div>
           {subtaskTotal > 0 && (
-            <div className="mb-3 h-[5px] overflow-hidden rounded-full bg-[#eeeef2]">
+            <div className="mb-3 h-[5px] overflow-hidden rounded-full bg-[var(--track)]">
               <div
-                className="h-full rounded-full bg-[#4f46e5]"
+                className="h-full rounded-full bg-[var(--accent)]"
                 style={{ width: `${subtaskPct}%` }}
               />
             </div>
@@ -403,12 +407,12 @@ export function TaskDetail({ task }: TaskDetailProps) {
             onBlur={() => {
               if (notes !== (task.notes ?? "")) void save({ notes: notes.trim() || null });
             }}
-            className="min-h-[64px] rounded-[9px] border-[#ececf1] bg-[#fdfdfe] text-[13px] placeholder:text-[#b0b0ba]"
+            className="min-h-[64px] rounded-[9px] border-[var(--border)] bg-[var(--notes-bg)] text-[13px] placeholder:text-[var(--text-5)]"
             placeholder="Add a note…"
           />
         </div>
 
-        <dl className="space-y-1 border-t border-[#f0f0f4] pt-4 text-xs text-[#9a9aa6]">
+        <dl className="space-y-1 border-t border-[var(--hairline)] pt-4 text-xs text-[var(--text-4)]">
           <div className="flex justify-between">
             <dt>Created</dt>
             <dd>{format(parseISO(task.createdAt), "MMM d, yyyy HH:mm")}</dd>
@@ -463,7 +467,7 @@ function StatusPill({
           type="button"
           className={cn(
             "rounded-[20px] px-[11px] py-1 text-[11px] font-semibold",
-            completed ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#eef0fe] text-[#4f46e5]",
+            completed ? "bg-[var(--completed-bg)] text-[var(--completed-text)]" : "bg-[var(--accent-tint)] text-[var(--accent-text)]",
           )}
         >
           {completed ? "Completed" : task.status}
@@ -477,8 +481,8 @@ function StatusPill({
               type="button"
               onClick={() => onChange(status)}
               className={cn(
-                "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[#f5f5f8]",
-                status === task.status && "font-semibold text-[#4f46e5]",
+                "rounded-[6px] px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--surface-hover-nav)]",
+                status === task.status && "font-semibold text-[var(--accent-text)]",
               )}
             >
               {status}

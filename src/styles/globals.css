@@ -4,50 +4,135 @@
 
 @layer base {
   :root {
-    /* Light theme — slate neutrals, indigo primary, rose danger */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 226 100% 97%;
-    --accent-foreground: 239 84% 40%;
+    /* Redesign tokens — light. See design_handoff_todo_app_redesign/DARK_MODE.md. */
+    --surface: #fafafb;
+    --surface-sidebar: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-hover-row: #fafafb;
+    --surface-hover-nav: #f5f5f8;
+    --border: #ececf1;
+    --hairline: #f0f0f4;
+    --track: #eeeef2;
+    --tag-bg: #f3f3f7;
+    --notes-bg: #fdfdfe;
+
+    --text-1: #1c1b22;
+    --text-2: #3f3f4a;
+    --text-3: #6c6c78;
+    --text-4: #9a9aa6;
+    --text-4b: #8a8a96;
+    --text-5: #b0b0ba;
+    --text-done: #9a9aa6;
+
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-text: #4f46e5;
+    --accent-tint: #eef0fe;
+    --accent-done-fill: #b9b6f0;
+    --ring-shadow: rgba(79, 70, 229, 0.1);
+    --button-shadow: rgba(79, 70, 229, 0.4);
+    --hero-from: #5b54e6;
+    --hero-to: #4f46e5;
+    --hero-shadow: rgba(79, 70, 229, 0.28);
+
+    --urgent-bg: #fee2e2;
+    --urgent-text: #b91c1c;
+    --high-bg: #fef3c7;
+    --high-text: #b45309;
+    --medium-bg: #dbeafe;
+    --medium-text: #1d4ed8;
+    --completed-bg: #dcfce7;
+    --completed-text: #15803d;
+    --low-bg: #f1f5f9;
+    --low-text: #334155;
+    --warning-text: #ef4444;
+    --warning-tint: #fef2f2;
+    --positive-text: #16a34a;
+
+    --checkbox-border: #cfcfda;
+    --dashed-border: #d8d8e0;
+
+    --cat-personal: #10b981;
+    --cat-shopping: #f59e0b;
+    --cat-study: #8b5cf6;
+    --cat-work: #3b82f6;
+
+    --cal-weekend-bg: #fafafb;
+    --cal-other-month-bg: #fbfbfc;
+    --cal-other-month-text: #c8c8d2;
+    --cal-weekday-weekend-text: #c2c2cc;
+    --cal-event-bg: #f1ecfc;
+    --cal-event-text: #5b3aa8;
+
+    /* Legacy shadcn slots kept as-is (not covered by the redesign doc). */
     --destructive: 350 89% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 239 84% 67%;
     --radius: 0.5rem;
   }
 
   .dark {
-    /* Dark theme */
-    --background: 222 47% 7%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 234 89% 74%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 20%;
-    --accent-foreground: 226 100% 94%;
+    /* Redesign tokens — dark. */
+    --surface: #131318;
+    --surface-sidebar: #17171d;
+    --surface-raised: #1c1c23;
+    --surface-hover-row: #22222b;
+    --surface-hover-nav: #22222b;
+    --border: #2a2a33;
+    --hairline: #26262e;
+    --track: #2e2e38;
+    --tag-bg: #26262e;
+    --notes-bg: #191920;
+
+    --text-1: #f0f0f4;
+    --text-2: #c6c6d0;
+    --text-3: #9a9aa6;
+    --text-4: #74747f;
+    --text-4b: #74747f;
+    --text-5: #55555f;
+    --text-done: #5e5e68;
+
+    --accent: #5b54e6;
+    --accent-hover: #4a43c9;
+    --accent-text: #837cf2;
+    --accent-tint: #23233e;
+    --accent-done-fill: #4a4685;
+    --ring-shadow: rgba(131, 124, 242, 0.18);
+    --button-shadow: rgba(0, 0, 0, 0.35);
+    --hero-from: #4a43c9;
+    --hero-to: #3d37ae;
+    --hero-shadow: rgba(0, 0, 0, 0.4);
+
+    --urgent-bg: #3b1a1e;
+    --urgent-text: #f87171;
+    --high-bg: #3a2e12;
+    --high-text: #fbbf24;
+    --medium-bg: #16263e;
+    --medium-text: #60a5fa;
+    --completed-bg: #14301f;
+    --completed-text: #4ade80;
+    --low-bg: #1e293b;
+    --low-text: #cbd5e1;
+    --warning-text: #f87171;
+    --warning-tint: #3b1a1e;
+    --positive-text: #4ade80;
+
+    --checkbox-border: #494955;
+    --dashed-border: #3a3a45;
+
+    --cat-personal: #34d399;
+    --cat-shopping: #fbbf24;
+    --cat-study: #a78bfa;
+    --cat-work: #60a5fa;
+
+    --cal-weekend-bg: #17171c;
+    --cal-other-month-bg: #15151a;
+    --cal-other-month-text: #4a4a54;
+    --cal-weekday-weekend-text: #4e4e58;
+    --cal-event-bg: #2a2340;
+    --cal-event-text: #b6a3f0;
+
     --destructive: 350 89% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 234 89% 74%;
   }
 }
 
@@ -58,4 +143,47 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+}
+
+/* Let the OS know the UI is dark — fixes native scrollbars, date/time
+   inputs, and form controls in one line. */
+:root.dark {
+  color-scheme: dark;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8d8e0 transparent;
+}
+.dark * {
+  scrollbar-color: #33333e transparent;
+}
+
+/* Chromium / WebView2 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8d8e0;
+  border-radius: 8px;
+  border: 3px solid transparent; /* slim 4px visual thumb */
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c2c2cc;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #33333e;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #494955;
+}
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-corner {
+  display: none;
 }

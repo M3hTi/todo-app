@@ -29,7 +29,9 @@ export function TaskCheckbox({
       style={{ width: size, height: size }}
       className={cn(
         "box-border flex shrink-0 items-center justify-center rounded-[6px] border-2 transition-colors",
-        checked ? "border-[#4f46e5] bg-[#4f46e5]" : "border-[#cfcfda] bg-white",
+        checked
+          ? "border-[var(--accent)] bg-[var(--accent)]"
+          : "border-[var(--checkbox-border)] bg-[var(--surface-raised)]",
         className,
       )}
       {...aria}

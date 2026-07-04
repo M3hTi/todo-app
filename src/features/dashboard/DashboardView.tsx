@@ -8,7 +8,7 @@ import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
 import { NewTaskButton } from "@/components/shared/NewTaskButton";
 import { toggleTaskComplete } from "@/hooks/useTasks";
-import { PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
+import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { cn } from "@/lib/utils";
 
 const GREETING = (() => {
@@ -75,11 +75,11 @@ export function DashboardView() {
   }, [tasks]);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-start justify-between gap-4 px-8 pb-5 pt-[26px]">
         <div>
-          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[#1c1b22]">{GREETING}</h1>
-          <p className="mt-1 text-sm text-[#6c6c78]">
+          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[var(--text-1)]">{GREETING}</h1>
+          <p className="mt-1 text-sm text-[var(--text-3)]">
             {format(new Date(), "EEEE, MMMM d")} ·{" "}
             {stats.attentionCount > 0
               ? `${stats.attentionCount} ${stats.attentionCount === 1 ? "task needs" : "tasks need"} your attention`
@@ -89,11 +89,11 @@ export function DashboardView() {
         <NewTaskButton />
       </div>
 
-      <div className="flex-1 overflow-auto px-8 pb-8">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-8 pb-8">
         <div className="mb-4 grid grid-cols-[1.35fr_1fr_1fr] gap-4">
           <div
-            className="flex items-center gap-[22px] rounded-2xl p-6 text-white shadow-[0_8px_24px_rgba(79,70,229,.28)]"
-            style={{ background: "linear-gradient(150deg, #5b54e6, #4f46e5)" }}
+            className="flex items-center gap-[22px] rounded-2xl p-6 text-white shadow-[0_8px_24px_var(--hero-shadow)]"
+            style={{ background: "linear-gradient(150deg, var(--hero-from), var(--hero-to))" }}
           >
             <div className="relative h-[104px] w-[104px] shrink-0">
               <svg width="104" height="104" viewBox="0 0 104 104">
@@ -149,45 +149,45 @@ export function DashboardView() {
 
           <StatCard
             icon={ListTodo}
-            iconBg="#eef0fe"
-            iconColor="#4f46e5"
+            iconBg="var(--accent-tint)"
+            iconColor="var(--accent-text)"
             label="Active tasks"
             value={stats.active.length}
             deltaText={stats.dueToday.length > 0 ? `${stats.dueToday.length} due today` : "Nothing due today"}
-            deltaColor={stats.dueToday.length > 0 ? "#ef4444" : "#6c6c78"}
+            deltaColor={stats.dueToday.length > 0 ? "var(--warning-text)" : "var(--text-3)"}
           />
 
           <StatCard
             icon={AlertCircle}
-            iconBg="#fef2f2"
-            iconColor="#ef4444"
+            iconBg="var(--warning-tint)"
+            iconColor="var(--warning-text)"
             label="Overdue"
             value={stats.overdue.length}
-            valueColor={stats.overdue.length === 0 ? "#16a34a" : undefined}
+            valueColor={stats.overdue.length === 0 ? "var(--positive-text)" : undefined}
             deltaText={
               stats.overdue.length > 0
                 ? `${stats.overdue.length} need${stats.overdue.length === 1 ? "s" : ""} attention`
                 : "All caught up 🎉"
             }
-            deltaColor={stats.overdue.length > 0 ? "#ef4444" : "#16a34a"}
+            deltaColor={stats.overdue.length > 0 ? "var(--warning-text)" : "var(--positive-text)"}
           />
         </div>
 
         <div className="grid grid-cols-[1.35fr_1fr] gap-4">
-          <div className="rounded-2xl border border-[#ececf1] bg-white p-5">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
             <div className="mb-3.5 flex items-center justify-between">
-              <span className="text-[15px] font-semibold text-[#1c1b22]">Focus for today</span>
+              <span className="text-[15px] font-semibold text-[var(--text-1)]">Focus for today</span>
               <button
                 type="button"
                 onClick={() => navigate("/today")}
-                className="text-[13px] font-semibold text-[#4f46e5] hover:underline"
+                className="text-[13px] font-semibold text-[var(--accent-text)] hover:underline"
               >
                 View all
               </button>
             </div>
 
             {stats.focus.length === 0 ? (
-              <p className="py-6 text-center text-[13px] text-[#8a8a96]">
+              <p className="py-6 text-center text-[13px] text-[var(--text-4b)]">
                 Nothing due today. Enjoy the calm.
               </p>
             ) : (
@@ -205,7 +205,7 @@ export function DashboardView() {
                         setSelectedTask(task.id);
                         navigate("/today");
                       }}
-                      className="flex cursor-pointer gap-3 rounded-[11px] border border-[#f0f0f4] p-[13px] hover:bg-[#fafafb]"
+                      className="flex cursor-pointer gap-3 rounded-[11px] border border-[var(--hairline)] p-[13px] hover:bg-[var(--surface-hover-row)]"
                     >
                       <TaskCheckbox
                         checked={task.status === "Completed"}
@@ -216,7 +216,7 @@ export function DashboardView() {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-[#1c1b22]">
+                          <span className="truncate text-sm font-semibold text-[var(--text-1)]">
                             {task.title}
                           </span>
                           <span
@@ -228,13 +228,13 @@ export function DashboardView() {
                             {task.priority}
                           </span>
                         </div>
-                        <div className="mt-[7px] flex items-center gap-3 text-xs text-[#6c6c78]">
-                          <span className="font-semibold text-[#4f46e5]">Today</span>
+                        <div className="mt-[7px] flex items-center gap-3 text-xs text-[var(--text-3)]">
+                          <span className="font-semibold text-[var(--accent-text)]">Today</span>
                           {category && (
                             <span className="flex items-center gap-[5px]">
                               <span
                                 className="h-[7px] w-[7px] rounded-full"
-                                style={{ backgroundColor: category.color }}
+                                style={{ backgroundColor: categoryDotColor(category.color) }}
                               />
                               {category.name}
                             </span>
@@ -242,12 +242,12 @@ export function DashboardView() {
                         </div>
                         {subtaskTotal > 0 && (
                           <div className="mt-[9px] flex items-center gap-2">
-                            <span className="text-[11px] text-[#9a9aa6]">
+                            <span className="text-[11px] text-[var(--text-4)]">
                               {subtaskDone}/{subtaskTotal}
                             </span>
-                            <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-[#eeeef2]">
+                            <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-[var(--track)]">
                               <div
-                                className="h-full bg-[#4f46e5]"
+                                className="h-full bg-[var(--accent)]"
                                 style={{ width: `${Math.round((subtaskDone / subtaskTotal) * 100)}%` }}
                               />
                             </div>
@@ -261,26 +261,26 @@ export function DashboardView() {
             )}
           </div>
 
-          <div className="flex flex-col rounded-2xl border border-[#ececf1] bg-white p-5">
-            <span className="mb-1 text-[15px] font-semibold text-[#1c1b22]">This week</span>
+          <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+            <span className="mb-1 text-[15px] font-semibold text-[var(--text-1)]">This week</span>
             {stats.completedThisWeek.length > 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center text-center">
-                <div className="text-[34px] font-bold leading-none text-[#1c1b22]">
+                <div className="text-[34px] font-bold leading-none text-[var(--text-1)]">
                   {stats.completedThisWeek.length}
                 </div>
-                <div className="mt-1.5 text-[12.5px] font-medium text-[#16a34a]">
+                <div className="mt-1.5 text-[12.5px] font-medium text-[var(--positive-text)]">
                   tasks completed this week
                 </div>
               </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center px-2 py-3.5 text-center">
-                <div className="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef0fe]">
-                  <TrendingUp className="h-7 w-7 text-[#4f46e5]" strokeWidth={2} />
+                <div className="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-tint)]">
+                  <TrendingUp className="h-7 w-7 text-[var(--accent-text)]" strokeWidth={2} />
                 </div>
-                <div className="mb-1 text-[14.5px] font-semibold text-[#1c1b22]">
+                <div className="mb-1 text-[14.5px] font-semibold text-[var(--text-1)]">
                   No completed tasks yet
                 </div>
-                <p className="max-w-[210px] text-[12.5px] leading-[1.5] text-[#8a8a96]">
+                <p className="max-w-[210px] text-[12.5px] leading-[1.5] text-[var(--text-4b)]">
                   Check off your first task and your weekly streak will start showing up here.
                 </p>
               </div>
@@ -314,9 +314,9 @@ function StatCard({
   deltaColor,
 }: StatCardProps) {
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-[#ececf1] bg-white p-5">
+    <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-[#6c6c78]">{label}</span>
+        <span className="text-[13px] font-medium text-[var(--text-3)]">{label}</span>
         <span
           className="flex h-[30px] w-[30px] items-center justify-center rounded-lg"
           style={{ backgroundColor: iconBg, color: iconColor }}
@@ -327,7 +327,7 @@ function StatCard({
       <div>
         <div
           className="text-[34px] font-bold leading-none"
-          style={{ color: valueColor ?? "#1c1b22" }}
+          style={{ color: valueColor ?? "var(--text-1)" }}
         >
           {value}
         </div>
