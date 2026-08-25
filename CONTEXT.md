@@ -42,35 +42,27 @@ state and pushes it in.
   + tooltip and pushes to Rust via `update_tray` (debounced).
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
 
-## Current state (2026-06)
-v0.2.0, feature-complete per the architecture review. Cleanup landed on branch
-`chore/review-cleanups`: added `recurrence.test.ts`; removed 3 dead query fns +
-support cast; narrowed `fs:scope` `**` → `$HOME`/`$APPDATA`/`$DOWNLOAD`
+## Current state (2026-08)
+v0.2.3, feature-complete. The **hardening pass is done and landed** — recurrence
+due-date anchor (ADR-0002), truthful reload-failure reporting, split
+import parse-vs-schema errors, `assembleTasks` scoped SELECTs, `recurrence.test.ts`,
+3 dead query fns removed, and `fs:scope` narrowed `**` → `$HOME`/`$APPDATA`/`$DOWNLOAD`
 (**defense-in-depth only** — the dialog plugin auto-grants picked paths, so
 import/export are NOT gated by `fs:scope`).
 
-## Decisions in flight (ADRs to be written — see roadmap)
-- **ADR-001 Reminder scheduling model** — ratify in-app 60s polling (best-effort
-  while running), document the one caveat (fully quit → missed until relaunch,
-  mitigated by `checkMissedReminders`), + one small hardening. Not OS scheduling.
-- **ADR-002 Recurrence roll-forward anchor** — change from **completion-time**
-  anchor to **due-date** anchor (roll forward to the next *future* occurrence).
-  Today `getNextDueDate` is called with `completedAt`; intent is to anchor on
-  `dueDate`.
+Both ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
+(in-app 60s polling, not OS scheduling) and
+`docs/adr/0002-recurrence-rollforward-anchor.md` (due-date anchor, skip missed).
 
-## Active roadmap — HARDENING ONLY (no new features), weekend / incremental
-Ordered: ADRs first, then implementation.
-1. **ADR-001** reminder scheduling model (+ small hardening)
-2. **ADR-002** recurrence roll-forward anchor
-3. **Recurrence due-date anchor** — implement + tests (gated by ADR-002)
-4. **Uncaught reload rejections** — try/catch + toast on `loadTasks` + cascade reloads
-5. **Import error clarity** — split JSON-parse vs Zod-shape toast messages
-6. **assembleTasks over-read** — scope the subtask/tag SELECTs by task id
-- **Cut:** browser-dev DB throw (`npm run dev` without Tauri) — desktop-only by design.
+## Roadmap
+Post-v0.2 direction lives in **`docs/ROADMAP.md`** — ship/CI/updater first, then
+E2E + backups, then product features (global hotkey, FTS5 search, command
+palette). This file no longer carries a roadmap section.
 
-## Non-goals (this pass)
-- No new user-facing features.
-- No OS-level reminder scheduling.
+## Standing non-goals
+- **Cloud sync / multi-device** — contradicts local-first single-user; a
+  rearchitecture, not a feature.
+- **OS-level reminder scheduling** — ADR-0001 ratified in-app polling.
 - `fs:scope` is NOT a lever to restrict import/export locations (dialog overrides
   it); that would need app-level path-allowlist validation.
 - Vestigial `reminder_at` / `reminder_shown_at` columns left as-is (SQLite
