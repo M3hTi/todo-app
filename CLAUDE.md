@@ -26,3 +26,17 @@ Local-first Windows desktop todo app: a Tauri v2 native shell wrapping a React 1
 - Import alias `@/` → `src/`.
 - DB query functions are typed, wrapped in try/catch, and throw `DbError`; raw DB errors are never shown to the user.
 - Tauri v2 permissions are declared in `src-tauri/capabilities/default.json` (not `tauri.conf.json`).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in GitHub Issues for `M3hTi/todo-app` (via the `gh` CLI); external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical label vocabulary, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root (created lazily, not upfront). See `docs/agents/domain.md`.
