@@ -32,12 +32,11 @@ keep it until the next roadmap replaces it.
    **Operationally required:** the `TAURI_SIGNING_PRIVATE_KEY` and
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets — without them the bundle
    step of the release workflow fails.
-   **Blocked at runtime while the repo is private:** v0.3.0 ships a correctly
-   signed `latest.json`, but `https://github.com/M3hTi/todo-app/releases/latest/download/latest.json`
-   returns 404 to anyone unauthenticated, so `check()` finds nothing and the
-   toast never appears. Baking a token into the client would leak it. The fix is
-   to make the repo public, or to mirror `latest.json` + the installers to a
-   public location and point `plugins.updater.endpoints` there.
+   **The repo had to go public for this to work:** the endpoint 404s to anyone
+   unauthenticated, and baking a token into the client would leak it. The repo
+   was made public on 2026-08-25 and the feed now answers 200. Keep it public, or
+   mirror `latest.json` + the installers somewhere public and repoint
+   `plugins.updater.endpoints`.
 
 ## Tier 2 — Kill the manual-GUI-verification bottleneck ✅
 
