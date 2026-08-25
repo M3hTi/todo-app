@@ -18,7 +18,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
  *   Ctrl+N new task · Ctrl+F focus search · Ctrl+D complete selected ·
  *   Delete delete selected (confirmed) · Ctrl+1 Today · Ctrl+2 Upcoming ·
  *   Ctrl+, Settings · Escape close modal / deselect
- * Ctrl+K (command palette) is owned by CommandPalette, and Ctrl+Shift+A
+ * Ctrl+K (command palette) is owned by CommandPalette, and Ctrl+Alt+A
  * (system-wide quick-add) by the Rust shell.
  */
 export function useKeyboardShortcuts(): void {

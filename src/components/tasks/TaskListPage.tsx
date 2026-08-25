@@ -176,6 +176,8 @@ function SearchBox() {
     <div className="flex h-[38px] w-[280px] items-center gap-[9px] rounded-[9px] border border-[var(--border)] bg-[var(--surface-raised)] px-[13px]">
       <Search className="h-[15px] w-[15px] shrink-0 text-[var(--text-4)]" strokeWidth={2} />
       <input
+        // Ctrl+F targets this id (see useKeyboardShortcuts).
+        id="task-search"
         value={input}
         onChange={(event) => setInput(event.target.value)}
         placeholder="Search tasks…"

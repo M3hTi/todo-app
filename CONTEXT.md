@@ -41,9 +41,23 @@ state and pushes it in.
 - **Tray payload** (`src/lib/tray.ts`) — frontend computes today/upcoming/overdue
   + tooltip and pushes to Rust via `update_tray` (debounced).
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
+- **Command palette** (`CommandPalette.tsx`) — Ctrl+K; tasks (matched on title,
+  tags and notes) plus New task and view navigation.
+- **Quick-add hotkey** — system-wide Ctrl+Alt+A, owned by Rust; emits the same
+  `tray://add-task` event the tray menu does.
+- **Backups** — every launch snapshots the DB + WAL sidecars into
+  `%APPDATA%\com.asus.todo-app\backups\<timestamp>\`, newest 5 kept.
+- **Update check** (`src/lib/updater.ts`) — once per launch against the GitHub
+  release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-08)
-v0.2.3, feature-complete. The **hardening pass is done and landed** — recurrence
+v0.3.0. v0.2.3 was the first release this project's automation delivered
+end-to-end (tagged, built, published). v0.3.0 adds the engineering floor and the
+product ceiling from `docs/ROADMAP.md`: CI on push/PR, the in-app auto-updater,
+a WebDriver E2E smoke suite, launch-time DB backups, the Ctrl+K palette, the
+global quick-add hotkey and search across notes/tags/subtasks.
+
+Before that, the **hardening pass landed** — recurrence
 due-date anchor (ADR-0002), truthful reload-failure reporting, split
 import parse-vs-schema errors, `assembleTasks` scoped SELECTs, `recurrence.test.ts`,
 3 dead query fns removed, and `fs:scope` narrowed `**` → `$HOME`/`$APPDATA`/`$DOWNLOAD`
@@ -55,9 +69,8 @@ Both ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
 `docs/adr/0002-recurrence-rollforward-anchor.md` (due-date anchor, skip missed).
 
 ## Roadmap
-Post-v0.2 direction lives in **`docs/ROADMAP.md`** — ship/CI/updater first, then
-E2E + backups, then product features (global hotkey, FTS5 search, command
-palette). This file no longer carries a roadmap section.
+**`docs/ROADMAP.md`** — now a completed record of the post-v0.2 pass, kept until
+a new roadmap replaces it. This file no longer carries a roadmap section.
 
 ## Standing non-goals
 - **Cloud sync / multi-device** — contradicts local-first single-user; a
@@ -67,3 +80,5 @@ palette). This file no longer carries a roadmap section.
   it); that would need app-level path-allowlist validation.
 - Vestigial `reminder_at` / `reminder_shown_at` columns left as-is (SQLite
   DROP COLUMN out of scope).
+- **SQLite FTS5** — search is a substring scan over the in-memory task list.
+  Revisit only if a list outgrows a per-keystroke scan (see ROADMAP item 8).

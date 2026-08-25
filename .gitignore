@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# E2E: locally supplied WebDriver binary
+e2e/drivers/
+e2e/tauri-driver.log

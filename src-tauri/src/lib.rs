@@ -135,15 +135,19 @@ fn backup_db(app: &AppHandle) -> std::io::Result<()> {
     rotate_backups(&backups, KEEP_BACKUPS)
 }
 
-/// System-wide quick-add: Ctrl+Shift+A surfaces the window with the new-task
-/// form open, from any app. Reuses the `tray://add-task` event the tray menu
-/// already emits, so the frontend needs no new listener.
+/// System-wide quick-add: Ctrl+Alt+A surfaces the window with the new-task form
+/// open, from any app. Reuses the `tray://add-task` event the tray menu already
+/// emits, so the frontend needs no new listener.
+///
+/// Ctrl+Shift+A was the first choice and was already taken on the development
+/// machine — Windows hands a global combination to whoever asks first, so
+/// registration failing is normal and never fatal.
 ///
 /// ponytail: the combination is fixed. Making it configurable means a settings
-/// UI, a capture widget and re-registration on change — add that only if a real
-/// conflict shows up.
+/// UI, a capture widget and re-registration on change — worth it only once
+/// someone actually hits a conflict on Ctrl+Alt+A.
 fn register_quick_add_shortcut(app: &AppHandle) {
-    let quick_add = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyA);
+    let quick_add = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyA);
 
     let plugin = tauri_plugin_global_shortcut::Builder::new()
         .with_handler(move |app, shortcut, event| {
@@ -161,7 +165,7 @@ fn register_quick_add_shortcut(app: &AppHandle) {
         return;
     }
     if let Err(err) = app.global_shortcut().register(quick_add) {
-        eprintln!("quick-add shortcut (Ctrl+Shift+A) not registered: {err}");
+        eprintln!("quick-add shortcut (Ctrl+Alt+A) not registered: {err}");
     }
 }
 

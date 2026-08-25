@@ -1,0 +1,7 @@
+{
+  "$schema": "../src-tauri/gen/schemas/desktop-schema.json",
+  "identifier": "com.asus.todo-app-e2e",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  }
+}

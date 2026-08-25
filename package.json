@@ -1,7 +1,7 @@
 {
   "name": "todo-app",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e:build": "tauri build --debug --no-bundle --config e2e/tauri.e2e.conf.json",
+    "test:e2e": "node --test e2e/smoke.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -61,6 +63,7 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "webdriverio": "^9.31.3"
   }
 }
