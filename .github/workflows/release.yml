@@ -41,9 +41,15 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the updater artifacts. Without both secrets the bundle step
+          # fails, because tauri.conf.json sets createUpdaterArtifacts.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Todo App ${{ github.ref_name }}"
           releaseBody: "Download the `.msi` or `-setup.exe` below to install."
           releaseDraft: true
           prerelease: false
+          # Emits latest.json alongside the installers; the in-app updater polls it.
+          includeUpdaterJson: true

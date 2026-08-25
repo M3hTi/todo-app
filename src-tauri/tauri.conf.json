@@ -33,6 +33,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/M3hTi/todo-app/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0OEUwOTYzODJFNjQ2RjYKUldUMlJ1YUNZd21PeE04ZW0zNDZkQmNSVWhHcnE2eXF3UWkwbW9DU2d1Ly93VUVqbStyOFhQTm4K",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

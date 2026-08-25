@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Task } from "@/types";
 import { initDb } from "@/lib/db";
+import { checkForUpdate } from "@/lib/updater";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
@@ -246,7 +247,10 @@ function App() {
           useTagStore.getState().loadTags(),
           useSettingsStore.getState().loadSettings(),
         ]);
-        if (!cancelled) setStartup({ status: "ready" });
+        if (!cancelled) {
+          setStartup({ status: "ready" });
+          void checkForUpdate();
+        }
       } catch {
         if (!cancelled) setStartup({ status: "error" });
       }
