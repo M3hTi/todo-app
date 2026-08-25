@@ -10,6 +10,7 @@ import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CommandPalette } from "@/components/shared/CommandPalette";
 import { CloseBehaviorDialog } from "@/components/layout/CloseBehaviorDialog";
 
 export function AppShell() {
@@ -39,6 +40,8 @@ export function AppShell() {
       </div>
 
       <TaskForm />
+
+      <CommandPalette />
 
       <CloseBehaviorDialog open={closePromptOpen} onOpenChange={setClosePromptOpen} />
 

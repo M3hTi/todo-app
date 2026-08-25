@@ -7,6 +7,7 @@ use tauri::{
     AppHandle, Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_autostart::MacosLauncher;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 #[derive(Deserialize)]
 struct TrayMenuItem {
@@ -134,6 +135,36 @@ fn backup_db(app: &AppHandle) -> std::io::Result<()> {
     rotate_backups(&backups, KEEP_BACKUPS)
 }
 
+/// System-wide quick-add: Ctrl+Shift+A surfaces the window with the new-task
+/// form open, from any app. Reuses the `tray://add-task` event the tray menu
+/// already emits, so the frontend needs no new listener.
+///
+/// ponytail: the combination is fixed. Making it configurable means a settings
+/// UI, a capture widget and re-registration on change — add that only if a real
+/// conflict shows up.
+fn register_quick_add_shortcut(app: &AppHandle) {
+    let quick_add = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyA);
+
+    let plugin = tauri_plugin_global_shortcut::Builder::new()
+        .with_handler(move |app, shortcut, event| {
+            if shortcut == &quick_add && event.state() == ShortcutState::Pressed {
+                let _ = app.emit("tray://add-task", ());
+                show_main(app);
+            }
+        })
+        .build();
+
+    // Another app may already own the combination; that is not fatal, the
+    // in-app Ctrl+N still works.
+    if let Err(err) = app.plugin(plugin) {
+        eprintln!("global shortcut plugin unavailable: {err}");
+        return;
+    }
+    if let Err(err) = app.global_shortcut().register(quick_add) {
+        eprintln!("quick-add shortcut (Ctrl+Shift+A) not registered: {err}");
+    }
+}
+
 /// Fully exits the app (invoked by the frontend when the user chooses "Quit").
 #[tauri::command]
 fn quit_app(app: AppHandle) {
@@ -162,6 +193,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![update_tray, quit_app])
         .setup(|app| {
+            register_quick_add_shortcut(app.handle());
+
             // Best-effort: a failed snapshot must never block launch.
             if let Err(err) = backup_db(app.handle()) {
                 eprintln!("database backup skipped: {err}");
