@@ -575,6 +575,10 @@ export function SettingsView() {
                 : "not granted"}
           </span>
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Reminders only fire while Todo App is running — closing to the tray keeps them
+          going, quitting does not (ADR-0001).
+        </p>
         {permissionGranted === false && (
           <p className="mt-2 text-xs text-muted-foreground">
             Notifications are blocked by the system. Allow them for Todo App in Windows

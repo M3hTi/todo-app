@@ -133,12 +133,35 @@ export function selectFilteredTasks(state: TaskStoreState): Task[] {
     ) {
       return false;
     }
-    if (query && !task.title.toLowerCase().includes(query)) return false;
+    if (query && !searchableText(task).includes(query)) return false;
     return true;
   });
 
   const direction = state.sortDir === "asc" ? 1 : -1;
   return filtered.sort((a, b) => compareTasks(a, b, state.sortBy) * direction);
+}
+
+/**
+ * Everything the search box matches against: title, description, notes, tags and
+ * subtask titles.
+ *
+ * ponytail: substring over the already-loaded task list, not SQLite FTS5. The
+ * whole table lives in memory anyway (`loadTasks` reads all of it), so an FTS5
+ * table + sync triggers would buy ranking and prefix tokens at the cost of a
+ * migration and a write-path to keep in sync. Swap in FTS5 if a list ever grows
+ * past what a per-keystroke scan can handle.
+ */
+function searchableText(task: Task): string {
+  return [
+    task.title,
+    task.description,
+    task.notes,
+    ...task.tags,
+    ...task.subtasks.map((subtask) => subtask.title),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 function compareTasks(a: Task, b: Task, sortBy: SortBy): number {

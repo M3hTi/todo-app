@@ -89,6 +89,51 @@ fn update_tray(app: AppHandle, payload: TrayPayload) -> Result<(), String> {
     Ok(())
 }
 
+/// Number of launch-time database snapshots kept in `backups/`.
+const KEEP_BACKUPS: usize = 5;
+
+/// Deletes all but the newest `keep` snapshot directories. Names are
+/// `YYYYMMDD-HHMMSS`, so lexical order is chronological order.
+fn rotate_backups(backups: &std::path::Path, keep: usize) -> std::io::Result<()> {
+    let mut dirs: Vec<std::path::PathBuf> = std::fs::read_dir(backups)?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    dirs.sort();
+    for old in dirs.iter().rev().skip(keep) {
+        std::fs::remove_dir_all(old)?;
+    }
+    Ok(())
+}
+
+/// Snapshots the SQLite database into `backups/<timestamp>/` at launch, before
+/// the frontend opens it. The DB in %APPDATA% is the only copy of the user's
+/// data and nothing syncs it, so one corruption would otherwise be total loss.
+/// The `-wal`/`-shm` sidecars are copied too: without them a snapshot taken
+/// after an unclean shutdown would be missing the last committed writes.
+fn backup_db(app: &AppHandle) -> std::io::Result<()> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    if !dir.join("todo-app.db").exists() {
+        return Ok(()); // first launch: nothing to back up yet
+    }
+
+    let backups = dir.join("backups");
+    let target = backups.join(chrono::Local::now().format("%Y%m%d-%H%M%S").to_string());
+    std::fs::create_dir_all(&target)?;
+    for suffix in ["", "-wal", "-shm"] {
+        let name = format!("todo-app.db{suffix}");
+        let src = dir.join(&name);
+        if src.exists() {
+            std::fs::copy(&src, target.join(&name))?;
+        }
+    }
+    rotate_backups(&backups, KEEP_BACKUPS)
+}
+
 /// Fully exits the app (invoked by the frontend when the user chooses "Quit").
 #[tauri::command]
 fn quit_app(app: AppHandle) {
@@ -117,6 +162,11 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![update_tray, quit_app])
         .setup(|app| {
+            // Best-effort: a failed snapshot must never block launch.
+            if let Err(err) = backup_db(app.handle()) {
+                eprintln!("database backup skipped: {err}");
+            }
+
             let menu = MenuBuilder::new(app)
                 .item(&MenuItemBuilder::with_id("show", "Show Todo App").build(app)?)
                 .item(&MenuItemBuilder::with_id("quit", "Quit").build(app)?)
@@ -172,4 +222,27 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rotate_backups;
+
+    #[test]
+    fn rotate_keeps_only_the_newest_snapshots() {
+        let root = std::env::temp_dir().join(format!("todo-app-rotate-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        for stamp in ["20260101-010101", "20260102-010101", "20260103-010101"] {
+            std::fs::create_dir_all(root.join(stamp)).unwrap();
+        }
+        std::fs::write(root.join("stray.txt"), "not a snapshot").unwrap();
+
+        rotate_backups(&root, 2).unwrap();
+
+        assert!(!root.join("20260101-010101").exists(), "oldest should be pruned");
+        assert!(root.join("20260102-010101").exists());
+        assert!(root.join("20260103-010101").exists());
+        assert!(root.join("stray.txt").exists(), "files are not snapshots");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }
