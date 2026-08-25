@@ -1,0 +1,22 @@
+name: CI
+
+# Guards `main` between releases: the release workflow only runs on tags, so
+# without this nothing checks a push. Frontend-only — the Rust shell is compiled
+# by the release build, and paying for a Windows runner on every push isn't worth it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
