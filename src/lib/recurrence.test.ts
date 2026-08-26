@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { RecurringRule } from "@/types";
-import { getNextDueDate, isRuleExpired, nextDueDateAfterCompletion } from "./recurrence";
+import {
+  getNextDueDate,
+  isOccurrenceOn,
+  isRuleExpired,
+  nextDueDateAfterCompletion,
+} from "./recurrence";
 
 // 2026-06-17 is a Wednesday (getDay === 3); 2026 is NOT a leap year (Feb has 28 days).
 const rule = (partial: Partial<RecurringRule> & Pick<RecurringRule, "frequency">): RecurringRule => ({
@@ -187,5 +192,56 @@ describe("nextDueDateAfterCompletion + isRuleExpired (endDate boundary, ADR-0002
     const next = nextDueDateAfterCompletion(r, "2026-06-15", "2026-06-17");
     expect(next).toBe("2026-06-22");
     expect(isRuleExpired(r, next)).toBe(true);
+  });
+});
+
+describe("isOccurrenceOn — telling a missed day from an unscheduled one", () => {
+  it("daily every 1 day matches every day up to the anchor", () => {
+    const rule: RecurringRule = { frequency: "Daily", interval: 1 };
+    for (const day of ["2026-08-20", "2026-08-25", "2026-08-26"]) {
+      expect(isOccurrenceOn(rule, day, "2026-08-27")).toBe(true);
+    }
+  });
+
+  it("daily every 3 days matches only the on-cycle days", () => {
+    const rule: RecurringRule = { frequency: "Daily", interval: 3 };
+    expect(isOccurrenceOn(rule, "2026-08-24", "2026-08-27")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-08-21", "2026-08-27")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-08-25", "2026-08-27")).toBe(false);
+    expect(isOccurrenceOn(rule, "2026-08-26", "2026-08-27")).toBe(false);
+  });
+
+  it("weekly Mon+Wed treats Tuesday as unscheduled, not missed", () => {
+    // 2026-08-24 Mon, 25 Tue, 26 Wed
+    const rule: RecurringRule = { frequency: "Weekly", interval: 1, daysOfWeek: [1, 3] };
+    expect(isOccurrenceOn(rule, "2026-08-24", "2026-08-26")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-08-25", "2026-08-26")).toBe(false);
+    expect(isOccurrenceOn(rule, "2026-08-26", "2026-08-26")).toBe(true);
+  });
+
+  it("fortnightly weekly skips the off week", () => {
+    const rule: RecurringRule = { frequency: "Weekly", interval: 2, daysOfWeek: [1] };
+    expect(isOccurrenceOn(rule, "2026-08-24", "2026-08-24")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-08-17", "2026-08-24")).toBe(false);
+    expect(isOccurrenceOn(rule, "2026-08-10", "2026-08-24")).toBe(true);
+  });
+
+  it("monthly clamps a 31st rule to a short month, matching getNextDueDate", () => {
+    const rule: RecurringRule = { frequency: "Monthly", interval: 1, dayOfMonth: 31 };
+    expect(isOccurrenceOn(rule, "2026-06-30", "2026-08-31")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-06-29", "2026-08-31")).toBe(false);
+    expect(isOccurrenceOn(rule, "2026-07-31", "2026-08-31")).toBe(true);
+  });
+
+  it("yearly matches the same month and day only", () => {
+    const rule: RecurringRule = { frequency: "Yearly", interval: 1 };
+    expect(isOccurrenceOn(rule, "2025-08-26", "2026-08-26")).toBe(true);
+    expect(isOccurrenceOn(rule, "2025-08-25", "2026-08-26")).toBe(false);
+  });
+
+  it("never matches past the rule's endDate", () => {
+    const rule: RecurringRule = { frequency: "Daily", interval: 1, endDate: "2026-08-20" };
+    expect(isOccurrenceOn(rule, "2026-08-19", "2026-08-27")).toBe(true);
+    expect(isOccurrenceOn(rule, "2026-08-21", "2026-08-27")).toBe(false);
   });
 });

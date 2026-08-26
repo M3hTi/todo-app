@@ -104,6 +104,45 @@ const MIGRATIONS: Migration[] = [
        WHERE reminder_shown_at IS NOT NULL AND reminder_json IS NOT NULL`,
     ],
   },
+  {
+    // Per-day completion log. One row = "this task was completed on this day";
+    // no row = not completed that day. Recurring tasks roll the same record
+    // forward, so this table is the only place per-day history can live.
+    version: 3,
+    statements: [
+      // task_id is nullable (ON DELETE SET NULL) so history outlives its task,
+      // which rules out a (task_id, occurrence_date) primary key — SQLite allows
+      // NULLs in a non-INTEGER PK, so it would enforce nothing. Uniqueness lives
+      // in the index below instead; orphans coexist because UNIQUE treats NULLs
+      // as distinct.
+      `CREATE TABLE IF NOT EXISTS task_completions (
+        id                 TEXT PRIMARY KEY,
+        task_id            TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+        task_title         TEXT NOT NULL,
+        occurrence_date    TEXT NOT NULL,
+        completed_at       TEXT NOT NULL,
+        prev_due_date      TEXT,
+        prev_reminder_json TEXT
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_task_completions_unique
+         ON task_completions(task_id, occurrence_date)`,
+      `CREATE INDEX IF NOT EXISTS idx_task_completions_date
+         ON task_completions(occurrence_date)`,
+      // Backfill one-off completions (recurring history was never stored, so it
+      // is unrecoverable). completed_at is toISOString() — UTC — so 'localtime'
+      // is required or every evening completion lands on the previous day.
+      // The IS NOT NULL guard keeps an unparseable timestamp from failing a
+      // NOT NULL column and bricking launch; such a row is skipped instead.
+      `INSERT OR IGNORE INTO task_completions
+         (id, task_id, task_title, occurrence_date, completed_at)
+       SELECT lower(hex(randomblob(16))), id, title,
+              date(completed_at, 'localtime'), completed_at
+         FROM tasks
+        WHERE status = 'Completed'
+          AND completed_at IS NOT NULL
+          AND date(completed_at, 'localtime') IS NOT NULL`,
+    ],
+  },
 ];
 
 const DEFAULT_CATEGORIES: ReadonlyArray<{ name: string; color: string }> = [
@@ -189,7 +228,15 @@ export async function resetAllData(): Promise<void> {
   return withDb("resetAllData", async () => {
     const db = getDb();
     // Children first so FK constraints never block the wipe.
-    for (const table of ["task_tags", "subtasks", "tasks", "tags", "categories", "settings"]) {
+    for (const table of [
+      "task_tags",
+      "subtasks",
+      "task_completions",
+      "tasks",
+      "tags",
+      "categories",
+      "settings",
+    ]) {
       await db.execute(`DELETE FROM ${table}`);
     }
     await seedDefaults(db);

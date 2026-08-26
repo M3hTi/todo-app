@@ -53,6 +53,28 @@ export interface Task {
   notes?: string;
 }
 
+/** One day's completion total, as rendered by the activity heatmap. */
+export interface DailyCount {
+  date: string;               // ISO date YYYY-MM-DD (local)
+  count: number;
+}
+
+/**
+ * A task completed on a given local day. Absence of a row means "not completed
+ * that day" — that is what makes per-day status independent for recurring tasks.
+ * `taskId` goes null when the task is deleted; `taskTitle` is snapshotted so the
+ * row can still render itself afterwards.
+ */
+export interface Completion {
+  id: string;
+  taskId: string | null;
+  taskTitle: string;
+  occurrenceDate: string;     // ISO date YYYY-MM-DD (local)
+  completedAt: string;        // ISO datetime
+  prevDueDate?: string;       // undo snapshot — the due date before roll-forward
+  prevReminder?: Reminder;    // undo snapshot — the reminder before re-anchoring
+}
+
 export interface Category {
   id: string;
   name: string;

@@ -8,10 +8,15 @@ import {
   addDays,
   addMonths,
   addYears,
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+  differenceInCalendarYears,
   format,
   getDay,
   getDaysInMonth,
   getDate,
+  getMonth,
   parseISO,
   startOfMonth,
 } from "date-fns";
@@ -57,6 +62,55 @@ export function getNextDueDate(rule: RecurringRule, fromDate: string): string {
     case "Yearly":
       // date-fns clamps Feb 29 → Feb 28 in non-leap years.
       return format(addYears(from, interval), DATE_FORMAT);
+  }
+}
+
+/**
+ * True when `date` falls on one of the rule's occurrences, working **backwards**
+ * from `anchorDueDate` (the task's current due date, i.e. its next occurrence).
+ *
+ * Needed because the history strip has to tell a genuinely missed day apart from
+ * a day the task was never scheduled on — a Mon/Wed task should not show Tuesday
+ * as a failure. Pure calendar arithmetic; it knows nothing about completions or
+ * whether the task existed yet.
+ */
+export function isOccurrenceOn(
+  rule: RecurringRule,
+  date: string,
+  anchorDueDate: string | undefined,
+): boolean {
+  if (rule.endDate !== undefined && date > rule.endDate) return false;
+
+  const target = parseISO(date);
+  const anchor = parseISO(anchorDueDate ?? date);
+  const interval = Math.max(1, Math.floor(rule.interval) || 1);
+
+  switch (rule.frequency) {
+    case "Daily":
+      return differenceInCalendarDays(anchor, target) % interval === 0;
+
+    case "Weekly": {
+      const days = rule.daysOfWeek ?? [];
+      if (days.length === 0) {
+        return differenceInCalendarDays(anchor, target) % (7 * interval) === 0;
+      }
+      if (!days.includes(getDay(target))) return false;
+      return differenceInCalendarWeeks(anchor, target, { weekStartsOn: 0 }) % interval === 0;
+    }
+
+    case "Monthly": {
+      // Same clamping as getNextDueDate, so a 31st rule matches the 30th in June.
+      const dayOfMonth = rule.dayOfMonth ?? getDate(anchor);
+      if (getDate(target) !== Math.min(dayOfMonth, getDaysInMonth(target))) return false;
+      return differenceInCalendarMonths(anchor, target) % interval === 0;
+    }
+
+    case "Yearly": {
+      if (getMonth(target) !== getMonth(anchor) || getDate(target) !== getDate(anchor)) {
+        return false;
+      }
+      return differenceInCalendarYears(anchor, target) % interval === 0;
+    }
   }
 }
 

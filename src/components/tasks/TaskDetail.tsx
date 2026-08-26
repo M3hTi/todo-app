@@ -20,6 +20,7 @@ import {
   type ReminderDraft,
 } from "@/lib/reminder";
 import { SubtaskList } from "@/components/tasks/SubtaskList";
+import { HistoryStrip } from "@/components/tasks/HistoryStrip";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -312,6 +313,8 @@ export function TaskDetail({ task }: TaskDetailProps) {
             </Popover>
           </div>
         </div>
+
+        {task.recurringRule && <HistoryStrip task={task} />}
 
         <div>
           <p className={sectionLabel}>Description</p>

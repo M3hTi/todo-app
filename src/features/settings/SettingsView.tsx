@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import type { CloseBehavior, TaskPriority, Theme } from "@/types";
 import { getDb, resetAllData, withDb } from "@/lib/db";
 import { autostartAction } from "@/lib/autostart";
+import { getAllCompletions } from "@/lib/queries/completions";
+import { useCompletionStore } from "@/store/useCompletionStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
@@ -116,6 +118,16 @@ const settingsSchema = z.object({
   launchOnStartup: z.boolean().default(false),
 });
 
+const completionSchema = z.object({
+  id: z.string(),
+  taskId: z.string().nullable(),
+  taskTitle: z.string(),
+  occurrenceDate: z.string(),
+  completedAt: z.string(),
+  prevDueDate: z.string().optional(),
+  prevReminder: reminderSchema.optional(),
+});
+
 const exportFileSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
@@ -123,6 +135,8 @@ const exportFileSchema = z.object({
   categories: z.array(categorySchema),
   tags: z.array(tagSchema),
   settings: settingsSchema,
+  // Optional: files exported before the activity log existed still import.
+  completions: z.array(completionSchema).optional(),
 });
 
 type ExportFile = z.infer<typeof exportFileSchema>;
@@ -269,6 +283,31 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
       importedTasks += 1;
     }
 
+    // Activity history. Orphan rows (task_id already null, or pointing at a task
+    // that exists in neither the file nor this DB) are KEPT with a null task_id —
+    // deleted-task history is still real history, and dropping unmatched rows
+    // here would re-destroy exactly what ON DELETE SET NULL preserves.
+    for (const completion of data.completions ?? []) {
+      const taskId =
+        completion.taskId !== null && existingTaskIds.has(completion.taskId)
+          ? completion.taskId
+          : null;
+      await db.execute(
+        `INSERT OR IGNORE INTO task_completions
+           (id, task_id, task_title, occurrence_date, completed_at, prev_due_date, prev_reminder_json)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          completion.id,
+          taskId,
+          completion.taskTitle,
+          completion.occurrenceDate,
+          completion.completedAt,
+          completion.prevDueDate ?? null,
+          completion.prevReminder ? JSON.stringify(completion.prevReminder) : null,
+        ],
+      );
+    }
+
     return { tasks: importedTasks, categories: importedCategories };
   });
 }
@@ -350,6 +389,7 @@ export function SettingsView() {
         useTaskStore.getState().loadTasks(),
         useCategoryStore.getState().loadCategories(),
         useTagStore.getState().loadTags(),
+        useCompletionStore.getState().load(),
         useSettingsStore.getState().loadSettings(),
       ]);
       toast.success("All data was reset to defaults.");
@@ -376,6 +416,9 @@ export function SettingsView() {
         categories,
         tags,
         settings,
+        // Without this, export -> reset -> import silently erases the entire
+        // activity history the heatmap is built from.
+        completions: await getAllCompletions(),
       };
       await writeTextFile(path, JSON.stringify(payload, null, 2));
       toast.success("Exported JSON successfully.");
@@ -446,6 +489,7 @@ export function SettingsView() {
         useTaskStore.getState().loadTasks(),
         useCategoryStore.getState().loadCategories(),
         useTagStore.getState().loadTags(),
+        useCompletionStore.getState().load(),
       ]);
       toast.success(`Imported ${result.tasks} tasks and ${result.categories} categories.`);
     } catch {
