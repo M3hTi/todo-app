@@ -6,6 +6,7 @@ import {
 import { toast } from "sonner";
 import type { Task } from "@/types";
 import { useTaskStore } from "@/store/useTaskStore";
+import { refreshIfDayChanged } from "@/store/useCompletionStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import {
   advanceAfterFire,
@@ -104,6 +105,14 @@ export function startReminderLoop(intervalMs = 60_000): () => void {
 
   const tick = async (): Promise<void> => {
     if (cancelled) return;
+
+    // Midnight rollover. The app is built to stay open for days (close-to-tray +
+    // autostart), so "today" cannot be resolved once at boot — yesterday's
+    // checkbox state and heatmap column would persist into the new day. This
+    // rides the existing minute tick rather than owning a timer, so it must sit
+    // ABOVE the early return below or it never runs on a quiet tick.
+    await refreshIfDayChanged();
+
     const store = useTaskStore.getState();
     const nowIso = new Date().toISOString();
     const due = store.tasks.filter((task) => isReminderDue(task.reminder, task.status, nowIso));

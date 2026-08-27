@@ -25,6 +25,7 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useCompletionStore } from "@/store/useCompletionStore";
 import { useFilteredTasks } from "@/hooks/useTasks";
 import { AppShell } from "@/components/layout/AppShell";
 import { TaskListPage, type TaskGroup } from "@/components/tasks/TaskListPage";
@@ -246,6 +247,9 @@ function App() {
           useCategoryStore.getState().loadCategories(),
           useTagStore.getState().loadTags(),
           useSettingsStore.getState().loadSettings(),
+          // Reports its own failure and resolves — activity history is additive,
+          // so a bad read must not put the app on the startup error screen.
+          useCompletionStore.getState().load(),
         ]);
         if (!cancelled) {
           setStartup({ status: "ready" });

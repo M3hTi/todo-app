@@ -4,19 +4,24 @@ import { format, isToday, parseISO, subDays } from "date-fns";
 import { AlertCircle, ListTodo, TrendingUp, type LucideIcon } from "lucide-react";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
+import { useCompletionStore } from "@/store/useCompletionStore";
+import { isDoneToday } from "@/lib/completions";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
 import { NewTaskButton } from "@/components/shared/NewTaskButton";
+import { ActivityHeatmap } from "@/components/shared/ActivityHeatmap";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { cn } from "@/lib/utils";
 
-const GREETING = (() => {
+// Computed per render, not once at module load — the app is built to stay open
+// for days, so a module-scope greeting stays frozen at whatever it said on launch.
+function greeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
-})();
+}
 
 const RING_RADIUS = 44;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -27,6 +32,15 @@ export function DashboardView() {
   const categories = useCategoryStore((state) => state.categories);
   const navigate = useNavigate();
   const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
+  const todayDone = useCompletionStore((state) => state.todayDone);
+  const completionsByDate = useCompletionStore((state) => state.completionsByDate);
+  // Subscribed so everything date-derived below recomputes on midnight rollover.
+  const dayKey = useCompletionStore((state) => state.dayKey);
+
+  const heatmapData = useMemo(
+    () => Object.entries(completionsByDate).map(([date, count]) => ({ date, count })),
+    [completionsByDate],
+  );
 
   const stats = useMemo(() => {
     const isOpen = (task: (typeof tasks)[number]): boolean =>
@@ -42,11 +56,10 @@ export function DashboardView() {
     const progressPct = subtaskTotal > 0 ? Math.round((subtaskDone / subtaskTotal) * 100) : 0;
 
     const completed = tasks.filter((task) => task.status === "Completed");
-    const completedDays = new Set(
-      completed
-        .filter((task) => task.completedAt)
-        .map((task) => format(parseISO(task.completedAt as string), "yyyy-MM-dd")),
-    );
+    // Streak comes from the completion log: a recurring task never keeps a
+    // completedAt (it rolls forward and clears it), so the old scan over live
+    // tasks counted zero days for exactly the habits a streak is meant to track.
+    const completedDays = new Set(Object.keys(completionsByDate));
     const todayKey = format(new Date(), "yyyy-MM-dd");
     let streak = 0;
     let cursor = completedDays.has(todayKey) ? new Date() : subDays(new Date(), 1);
@@ -72,13 +85,13 @@ export function DashboardView() {
       focus: dueToday.slice(0, FOCUS_LIMIT),
       attentionCount: dueToday.length + overdue.length,
     };
-  }, [tasks]);
+  }, [tasks, dayKey, completionsByDate]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex items-start justify-between gap-4 px-8 pb-5 pt-[26px]">
         <div>
-          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[var(--text-1)]">{GREETING}</h1>
+          <h1 className="text-[23px] font-bold tracking-[-.01em] text-[var(--text-1)]">{greeting()}</h1>
           <p className="mt-1 text-sm text-[var(--text-3)]">
             {format(new Date(), "EEEE, MMMM d")} ·{" "}
             {stats.attentionCount > 0
@@ -208,7 +221,7 @@ export function DashboardView() {
                       className="flex cursor-pointer gap-3 rounded-[11px] border border-[var(--hairline)] p-[13px] hover:bg-[var(--surface-hover-row)]"
                     >
                       <TaskCheckbox
-                        checked={task.status === "Completed"}
+                        checked={isDoneToday(task, todayDone)}
                         onToggle={() => void toggleTaskComplete(task)}
                         size={19}
                         className="mt-px"
@@ -286,6 +299,10 @@ export function DashboardView() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-raised)] p-5">
+          <ActivityHeatmap data={heatmapData} />
         </div>
       </div>
     </div>

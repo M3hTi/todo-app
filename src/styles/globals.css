@@ -35,6 +35,13 @@
     --hero-to: #4f46e5;
     --hero-shadow: rgba(79, 70, 229, 0.28);
 
+    /* Activity heatmap ramp: --heat-0 is an empty day, --heat-4 the busiest. */
+    --heat-0: #ebebf0;
+    --heat-1: #c7c3f5;
+    --heat-2: #9d97ee;
+    --heat-3: #6f66e8;
+    --heat-4: #4f46e5;
+
     --urgent-bg: #fee2e2;
     --urgent-text: #b91c1c;
     --high-bg: #fef3c7;
@@ -101,6 +108,12 @@
     --hero-from: #4a43c9;
     --hero-to: #3d37ae;
     --hero-shadow: rgba(0, 0, 0, 0.4);
+
+    --heat-0: #23232b;
+    --heat-1: #312d63;
+    --heat-2: #413a8f;
+    --heat-3: #5048bd;
+    --heat-4: #6f66e8;
 
     --urgent-bg: #3b1a1e;
     --urgent-text: #f87171;

@@ -2,6 +2,8 @@ import { format, isBefore, isToday, parseISO, startOfDay } from "date-fns";
 import type { Task } from "@/types";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useCompletionStore } from "@/store/useCompletionStore";
+import { isDoneToday } from "@/lib/completions";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
@@ -24,7 +26,9 @@ export function TaskCard({ task }: TaskCardProps) {
     state.categories.find((candidate) => candidate.id === task.categoryId),
   );
 
-  const completed = task.status === "Completed";
+  // Completion state, not status: a recurring task done today reads as 'Not
+  // Started' (it already rolled forward to tomorrow) but must render as checked.
+  const completed = useCompletionStore((state) => isDoneToday(task, state.todayDone));
   const dueToday = task.dueDate !== undefined && isToday(parseISO(task.dueDate));
   const subtaskTotal = task.subtasks.length;
   const subtaskDone = task.subtasks.filter((subtask) => subtask.completed).length;

@@ -7,7 +7,7 @@ language + current direction — it does not duplicate CLAUDE.md.
 ## What it is
 Local-first **Windows desktop** todo app. Tauri v2 (Rust) native shell wrapping
 a React 18 + TypeScript (strict) frontend; all persistence in SQLite via
-`@tauri-apps/plugin-sql`. Single user, offline, **feature-complete as of v0.2**.
+`@tauri-apps/plugin-sql`. Single user, offline.
 
 ## Architecture (strictly one-directional)
 UI (`src/components`, `src/features`) → Zustand stores (`src/store`) → typed
@@ -32,14 +32,41 @@ state and pushes it in.
 - **RecurringRule** — `frequency` (Daily/Weekly/Monthly/Yearly) + `interval`,
   optional `daysOfWeek` / `dayOfMonth` / `endDate`. Completing a recurring task
   rolls the **same record** forward (status → Not Started, dueDate → next,
-  completedAt → null). An expired rule (next occurrence > endDate) is cleared and
-  the task stays Completed.
+  completedAt → null) **and writes a Completion row** — the record holds only the
+  *next* occurrence, so the log is the only per-day history. An expired rule (next
+  occurrence > endDate) is cleared and the task stays Completed.
+- **Completion** — one row in `task_completions` = "this task was done on this
+  local day". **No row means not done that day**; misses are never written.
+  Credited to the day the user clicked, *not* the occurrence satisfied, so days
+  are independent (miss Monday, complete Tuesday → Monday stays missed). See
+  ADR-0003. Carries `task_title` (snapshot — history survives deleting the task,
+  `task_id` goes null) and `prev_due_date` / `prev_reminder_json` (undo snapshot).
+  Written for one-off tasks too, so the heatmap has one source.
+- **Done today** — `isDoneToday(task, todayDone)` = one-off Completed **or** a log
+  row for today. Drives checkbox state and the done visual **only**; filtering,
+  sorting and the status badge still read `status`, because a recurring task
+  genuinely is Not Started for tomorrow.
+- **Occurrence** — `isOccurrenceOn(rule, date, anchorDueDate)` replays a rule
+  backwards from the due date, so a history view can tell a genuinely **missed**
+  day from one that was **never scheduled** (a Mon/Wed task owes nothing on
+  Tuesday). Days before the task's `createdAt` are never "missed".
 - **Reminder loop** (`src/lib/reminders.ts`) — 60s in-app poll. Native
   notification when the window is unfocused, in-app toast (Snooze/Dismiss) when
   focused. `checkMissedReminders` catches up on launch. **App must be running**
   (autostart + close-to-tray keep it alive).
 - **Tray payload** (`src/lib/tray.ts`) — frontend computes today/upcoming/overdue
   + tooltip and pushes to Rust via `update_tray` (debounced).
+- **Day key** — every occurrence date is a **local** `yyyy-MM-dd` from date-fns
+  `format`, never `toISOString().slice(0,10)` (UTC), which misfiles evening work
+  by a day. The app is built to run for days, so "today" is not resolved once:
+  `useCompletionStore.dayKey` is re-checked on the existing 60s reminder tick
+  (`refreshIfDayChanged`, above the loop's early return) and reloads at midnight.
+- **Activity heatmap** (`src/components/shared/ActivityHeatmap.tsx`) — 53-week
+  GitHub-style grid on the dashboard, counting Completion rows per day. Pure CSS
+  grid, no chart library. Fixed intensity buckets (`0 / 1–2 / 3–5 / 6–9 / 10+`)
+  via `--heat-0…4` tokens, so a square keeps its colour as history grows. The
+  dashboard **streak** reads the same log — the old `completedAt` scan counted
+  zero days for recurring tasks.
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
 - **Command palette** (`CommandPalette.tsx`) — Ctrl+K; tasks (matched on title,
   tags and notes) plus New task and view navigation.
@@ -51,7 +78,15 @@ state and pushes it in.
   release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-08)
-v0.3.0. v0.2.3 was the first release this project's automation delivered
+v0.3.0 shipped. **Unreleased on top of it: per-day completions + the activity
+heatmap** (migration **v3**, `task_completions`). This closed a real gap — a
+recurring task previously kept *no* completion history at all, so days could not
+be tracked independently and the streak never counted a habit. Plan:
+`docs/superpowers/plans/2026-08-26-per-day-completions-heatmap.md`; decision:
+ADR-0003. Verified against the real database (migration, backfill incl. the
+UTC→local correction, undo snapshot, export/reset/import round-trip).
+
+v0.2.3 was the first release this project's automation delivered
 end-to-end (tagged, built, published). v0.3.0 adds the engineering floor and the
 product ceiling from `docs/ROADMAP.md`: CI on push/PR, the in-app auto-updater,
 a WebDriver E2E smoke suite, launch-time DB backups, the Ctrl+K palette, the
@@ -64,9 +99,11 @@ import parse-vs-schema errors, `assembleTasks` scoped SELECTs, `recurrence.test.
 (**defense-in-depth only** — the dialog plugin auto-grants picked paths, so
 import/export are NOT gated by `fs:scope`).
 
-Both ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
-(in-app 60s polling, not OS scheduling) and
-`docs/adr/0002-recurrence-rollforward-anchor.md` (due-date anchor, skip missed).
+Three ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
+(in-app 60s polling, not OS scheduling),
+`docs/adr/0002-recurrence-rollforward-anchor.md` (due-date anchor, skip missed)
+and `docs/adr/0003-completion-day-anchor.md` (completions credited to the day the
+work happened; a row means done, absence means not done).
 
 ## Roadmap
 **`docs/ROADMAP.md`** — now a completed record of the post-v0.2 pass, kept until
@@ -82,3 +119,11 @@ a new roadmap replaces it. This file no longer carries a roadmap section.
   DROP COLUMN out of scope).
 - **SQLite FTS5** — search is a substring scan over the in-memory task list.
   Revisit only if a list outgrows a per-keystroke scan (see ROADMAP item 8).
+- **One task row per occurrence** — rejected in ADR-0003. The completion log
+  gives per-day history without unbounded row growth or rewriting every query.
+- **Auto-rolling a missed recurring task's `dueDate` forward** — deliberately
+  deferred, not rejected. Now safe to add (misses are logged, so advancing the
+  due date no longer destroys the only evidence), but it touches tray, calendar
+  and reminders, so it needs its own pass.
+- **Adherence metrics** ("4 of 7 scheduled days") — derivable via
+  `isOccurrenceOn`, not shipped. The heatmap is an *activity* view by design.
