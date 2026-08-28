@@ -1,7 +1,7 @@
 {
   "name": "todo-app",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -65,5 +65,8 @@
     "vite": "^7.0.4",
     "vitest": "^4.1.8",
     "webdriverio": "^9.31.3"
+  },
+  "overrides": {
+    "postcss-selector-parser": "^6.1.4"
   }
 }

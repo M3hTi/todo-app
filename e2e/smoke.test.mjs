@@ -136,3 +136,41 @@ test("the task survives a relaunch", async () => {
     "completion should have been persisted, not just held in memory",
   );
 });
+
+// Hover-revealed controls: they are `opacity-0 group-hover:opacity-100`, so a
+// build that drops Tailwind's group variants leaves them permanently invisible
+// while still passing every query-by-selector test. Hover, then click.
+test("a category can be deleted from the sidebar on hover", async () => {
+  await app.$('button[aria-label="New category"]').click();
+  await app.$("#category-name").setValue("Doomed");
+  await app.$("button=Create").click();
+
+  const link = await app.$("a*=Doomed");
+  await link.waitForDisplayed({ timeout: 5000 });
+  await link.moveTo();
+
+  const remove = await app.$('button[aria-label="Delete Doomed"]');
+  await remove.waitForDisplayed({ timeout: 5000 });
+  await remove.click();
+  await app.$("button=Delete").click();
+  await app.$("a*=Doomed").waitForExist({ reverse: true, timeout: 5000 });
+});
+
+test("a subtask can be deleted from the detail panel on hover", async () => {
+  await app.$("a=All Tasks").click();
+  await app.$(`span=${TASK}`).click();
+
+  const add = await app.$('input[aria-label="New subtask title"]');
+  await add.waitForDisplayed({ timeout: 5000 });
+  await add.setValue("Doomed subtask");
+  await app.keys(["Enter"]);
+
+  const row = await app.$('input[aria-label="Subtask title: Doomed subtask"]');
+  await row.waitForDisplayed({ timeout: 5000 });
+  await row.moveTo();
+
+  const remove = await app.$('button[aria-label="Delete subtask Doomed subtask"]');
+  await remove.waitForDisplayed({ timeout: 5000 });
+  await remove.click();
+  await row.waitForExist({ reverse: true, timeout: 5000 });
+});
