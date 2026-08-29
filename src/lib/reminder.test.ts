@@ -3,6 +3,7 @@ import {
   advanceAfterFire,
   buildReminder,
   dismissReminder,
+  dueDatePatch,
   isReminderDue,
   reanchorReminder,
   reminderForNextOccurrence,
@@ -138,5 +139,47 @@ describe("reanchorReminder / reminderForNextOccurrence", () => {
     expect(reminderForNextOccurrence(r, "2026-06-27", "10:00")?.nextFireAt).toBe(
       new Date("2026-06-27T09:00:00").toISOString(),
     );
+  });
+});
+
+describe("dueDatePatch", () => {
+  const relative: Reminder = { mode: "relative", minutesBefore: 30, nextFireAt: "2026-06-20T08:30:00.000Z" };
+  const absolute: Reminder = { mode: "absolute", at: "2026-06-20T09:00:00.000Z", nextFireAt: "2026-06-20T09:00:00.000Z" };
+
+  it("re-anchors a relative reminder to the new due date", () => {
+    const patch = dueDatePatch({ dueTime: "10:00", reminder: relative }, "2026-06-27");
+    expect(patch.dueDate).toBe("2026-06-27");
+    expect(patch.reminder?.nextFireAt).toBe(new Date("2026-06-27T09:30:00").toISOString());
+  });
+
+  it("leaves an absolute reminder alone — it has its own date", () => {
+    const patch = dueDatePatch({ dueTime: "10:00", reminder: absolute }, "2026-06-27");
+    expect(patch).toEqual({ dueDate: "2026-06-27" });
+  });
+
+  it("omits the reminder key entirely when there is no reminder", () => {
+    expect(dueDatePatch({ dueTime: undefined, reminder: undefined }, "2026-06-27")).toEqual({
+      dueDate: "2026-06-27",
+    });
+  });
+
+  it("clearing the due date drops a relative reminder", () => {
+    expect(dueDatePatch({ dueTime: "10:00", reminder: relative }, null)).toEqual({
+      dueDate: null,
+      dueTime: null,
+      reminder: null,
+    });
+  });
+
+  it("clearing the due date keeps an absolute reminder", () => {
+    expect(dueDatePatch({ dueTime: "10:00", reminder: absolute }, null)).toEqual({
+      dueDate: null,
+      dueTime: null,
+    });
+  });
+
+  it("falls back to 09:00 when the task has no due time", () => {
+    const patch = dueDatePatch({ dueTime: undefined, reminder: relative }, "2026-06-27");
+    expect(patch.reminder?.nextFireAt).toBe(new Date("2026-06-27T08:30:00").toISOString());
   });
 });

@@ -50,6 +50,11 @@ state and pushes it in.
   backwards from the due date, so a history view can tell a genuinely **missed**
   day from one that was **never scheduled** (a Mon/Wed task owes nothing on
   Tuesday). Days before the task's `createdAt` are never "missed".
+- **Due-date patch** (`dueDatePatch` in `src/lib/reminder.ts`) — the only
+  sanctioned way to move or clear a due date. `updateTask` does not touch
+  reminders, so a bare `{ dueDate }` write would leave a *relative* reminder
+  ("30 min before due") firing against the old date; an absolute one keeps its
+  own date and is left alone.
 - **Reminder loop** (`src/lib/reminders.ts`) — 60s in-app poll. Native
   notification when the window is unfocused, in-app toast (Snooze/Dismiss) when
   focused. `checkMissedReminders` catches up on launch. **App must be running**
@@ -70,6 +75,10 @@ state and pushes it in.
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
 - **Command palette** (`CommandPalette.tsx`) — Ctrl+K; tasks (matched on title,
   tags and notes) plus New task and view navigation.
+- **Task row context menu** (`TaskContextMenu.tsx`) — right-click a `TaskCard`:
+  complete/uncomplete, priority, quick due date, delete. Marks its target with
+  `data-state=open` styling but does **not** select the row. WebView2's own menu
+  is suppressed app-wide in production except in text fields (`AppShell`).
 - **Quick-add hotkey** — system-wide Ctrl+Alt+A, owned by Rust; emits the same
   `tray://add-task` event the tray menu does.
 - **Backups** — every launch snapshots the DB + WAL sidecars into

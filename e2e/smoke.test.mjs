@@ -22,6 +22,7 @@ const NATIVE_PORT = 4446;
 const DRIVER_LOG = path.join(here, "tauri-driver.log");
 
 const TASK = "Smoke test task";
+const MENU_TASK = "Context menu task";
 const NOTE_WORD = "sluicegate"; // deliberately not in the title, to prove search reads notes
 
 let driver;
@@ -173,4 +174,26 @@ test("a subtask can be deleted from the detail panel on hover", async () => {
   await remove.waitForDisplayed({ timeout: 5000 });
   await remove.click();
   await row.waitForExist({ reverse: true, timeout: 5000 });
+});
+
+// Deleting from a row's context menu opens a dialog while Radix is unmounting
+// the menu. Get that ordering wrong and <body> keeps `pointer-events: none`,
+// which leaves the whole app dead to the mouse while still passing every
+// DOM-level assertion — so this test ends on a plain click that has to land.
+test("the task row context menu deletes without freezing the app", async () => {
+  await app.$("a=All Tasks").click();
+  await app.$("button*=New Task").click();
+  await app.$("#task-title").setValue(MENU_TASK);
+  await app.$("button=Create task").click();
+  await app.$("a=All Tasks").click();
+
+  const row = await app.$(`//div[@role="listitem"][.//span[text()="${MENU_TASK}"]]`);
+  await row.waitForDisplayed({ timeout: 5000 });
+  await row.click({ button: "right" });
+  await app.$('//div[@role="menuitem" and normalize-space(.)="Delete"]').click();
+  await app.$("button=Delete").click();
+  await app.$(`span=${MENU_TASK}`).waitForExist({ reverse: true, timeout: 5000 });
+
+  await app.$("a=Today").click();
+  await app.$("h1=Today").waitForDisplayed({ timeout: 5000 });
 });

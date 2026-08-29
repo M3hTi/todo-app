@@ -2,16 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskStore } from "@/store/useTaskStore";
 import { toggleTaskComplete } from "@/hooks/useTasks";
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.isContentEditable ||
-    target.closest("[contenteditable]") !== null
-  );
-}
+import { isEditableTarget } from "@/lib/utils";
 
 /**
  * Global shortcuts. Registered once in AppShell:
