@@ -87,8 +87,9 @@ state and pushes it in.
   release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-08)
-v0.3.0 shipped. **Unreleased on top of it: per-day completions + the activity
-heatmap** (migration **v3**, `task_completions`). This closed a real gap — a
+v0.5.0 is the current release — the task-row context menu (spec:
+`docs/superpowers/specs/2026-08-29-context-menus.md`). v0.4.x shipped per-day
+completions + the activity heatmap (migration **v3**, `task_completions`). This closed a real gap — a
 recurring task previously kept *no* completion history at all, so days could not
 be tracked independently and the streak never counted a habit. Plan:
 `docs/superpowers/plans/2026-08-26-per-day-completions-heatmap.md`; decision:
