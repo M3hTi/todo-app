@@ -14,7 +14,7 @@ import { ReminderEditor } from "@/components/tasks/ReminderEditor";
 import {
   buildReminder,
   dismissReminder,
-  reanchorReminder,
+  dueDatePatch,
   snoozeReminder,
   toDraft,
   type ReminderDraft,
@@ -26,18 +26,11 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { quickDate, type QuickChip } from "@/lib/dateChips";
+import { DATE_CHIPS, quickDate } from "@/lib/dateChips";
 import { cn } from "@/lib/utils";
 
 const STATUSES: TaskStatus[] = ["Not Started", "In Progress", "Completed", "Cancelled"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
-const DATE_CHIPS: { chip: QuickChip; label: string }[] = [
-  { chip: "today", label: "Today" },
-  { chip: "tomorrow", label: "Tomorrow" },
-  { chip: "weekend", label: "This weekend" },
-  { chip: "nextWeek", label: "Next week" },
-];
-
 const sectionLabel = "mb-2 text-[13.5px] font-semibold text-[var(--text-1)]";
 const metaRow =
   "flex items-center justify-between border-b border-[var(--hairline)] py-[11px] text-left";
@@ -163,14 +156,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                       variant="secondary"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => {
-                        const value = quickDate(chip, new Date());
-                        const patch: UpdateTaskInput = { dueDate: value };
-                        if (task.reminder?.mode === "relative") {
-                          patch.reminder = reanchorReminder(task.reminder, value, task.dueTime);
-                        }
-                        void save(patch);
-                      }}
+                      onClick={() => void save(dueDatePatch(task, quickDate(chip, new Date())))}
                     >
                       {label}
                     </Button>
@@ -181,11 +167,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => {
-                        const patch: UpdateTaskInput = { dueDate: null, dueTime: null };
-                        if (task.reminder?.mode === "relative") patch.reminder = null;
-                        void save(patch);
-                      }}
+                      onClick={() => void save(dueDatePatch(task, null))}
                     >
                       Clear
                     </Button>
@@ -196,13 +178,7 @@ export function TaskDetail({ task }: TaskDetailProps) {
                   selected={task.dueDate ? parseISO(task.dueDate) : undefined}
                   defaultMonth={task.dueDate ? parseISO(task.dueDate) : undefined}
                   onSelect={(day) => {
-                    if (!day) return;
-                    const value = format(day, "yyyy-MM-dd");
-                    const patch: UpdateTaskInput = { dueDate: value };
-                    if (task.reminder?.mode === "relative") {
-                      patch.reminder = reanchorReminder(task.reminder, value, task.dueTime);
-                    }
-                    void save(patch);
+                    if (day) void save(dueDatePatch(task, format(day, "yyyy-MM-dd")));
                   }}
                   autoFocus
                 />

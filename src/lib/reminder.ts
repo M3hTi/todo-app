@@ -1,5 +1,6 @@
 import { addMinutes, format, parseISO, subMinutes } from "date-fns";
-import type { Reminder, ReminderMode, TaskStatus } from "@/types";
+import type { Reminder, ReminderMode, Task, TaskStatus } from "@/types";
+import type { UpdateTaskInput } from "@/lib/queries/tasks";
 
 export const SNOOZE_MINUTES = 15;
 
@@ -135,4 +136,27 @@ export function reminderForNextOccurrence(
 ): Reminder | undefined {
   if (!reminder || reminder.mode === "absolute") return undefined;
   return reanchorReminder(reminder, nextDueDate, dueTime);
+}
+
+/**
+ * The full patch for changing (or clearing) a task's due date.
+ *
+ * `updateTask` does not touch reminders, so a bare `{ dueDate }` write would
+ * leave a relative reminder ("30 min before due") firing against the *old*
+ * date. Every surface that moves a due date must go through here.
+ */
+export function dueDatePatch(
+  task: Pick<Task, "dueTime" | "reminder">,
+  dueDate: string | null,
+): UpdateTaskInput {
+  const isRelative = task.reminder?.mode === "relative";
+  if (dueDate === null) {
+    // An absolute reminder has its own date and outlives the due date.
+    return isRelative
+      ? { dueDate: null, dueTime: null, reminder: null }
+      : { dueDate: null, dueTime: null };
+  }
+  return isRelative && task.reminder
+    ? { dueDate, reminder: reanchorReminder(task.reminder, dueDate, task.dueTime) }
+    : { dueDate };
 }

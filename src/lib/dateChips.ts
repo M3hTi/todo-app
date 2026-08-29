@@ -17,3 +17,12 @@ export function quickDate(chip: QuickChip, now: Date): string {
       return format(nextMonday(now), FMT);
   }
 }
+
+/** The quick-pick chips, in display order. Shared by the detail panel and the
+ *  task row's context menu so the two can't drift apart. */
+export const DATE_CHIPS: { chip: QuickChip; label: string }[] = [
+  { chip: "today", label: "Today" },
+  { chip: "tomorrow", label: "Tomorrow" },
+  { chip: "weekend", label: "This weekend" },
+  { chip: "nextWeek", label: "Next week" },
+];
