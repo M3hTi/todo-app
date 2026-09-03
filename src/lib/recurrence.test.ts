@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { RecurringRule } from "@/types";
 import {
+  catchUpDueDate,
   getNextDueDate,
   isOccurrenceOn,
   isRuleExpired,
@@ -243,5 +244,79 @@ describe("isOccurrenceOn — telling a missed day from an unscheduled one", () =
     const rule: RecurringRule = { frequency: "Daily", interval: 1, endDate: "2026-08-20" };
     expect(isOccurrenceOn(rule, "2026-08-19", "2026-08-27")).toBe(true);
     expect(isOccurrenceOn(rule, "2026-08-21", "2026-08-27")).toBe(false);
+  });
+});
+
+describe("catchUpDueDate — missed occurrences roll up to today", () => {
+  it("brings a daily task missed for days up to today", () => {
+    // The reported case: last done Aug 30, due Aug 31, opened again on Sep 3.
+    expect(catchUpDueDate(rule({ frequency: "Daily" }), "2026-08-31", "2026-09-03")).toBe(
+      "2026-09-03",
+    );
+  });
+
+  it("crosses a month boundary in one sweep instead of stopping at the 1st", () => {
+    // Daily task last due Sep 30, app opened Oct 3: it must land on Oct 3, not
+    // limp one step to Oct 1 and stay in the past.
+    expect(catchUpDueDate(rule({ frequency: "Daily" }), "2026-09-30", "2026-10-03")).toBe(
+      "2026-10-03",
+    );
+    // Same from a date already inside the new month.
+    expect(catchUpDueDate(rule({ frequency: "Daily" }), "2026-10-01", "2026-10-03")).toBe(
+      "2026-10-03",
+    );
+  });
+
+  it("never returns a date before today, for any frequency", () => {
+    const today = "2026-10-03";
+    const rules = [
+      rule({ frequency: "Daily" }),
+      rule({ frequency: "Daily", interval: 2 }),
+      rule({ frequency: "Weekly", daysOfWeek: [1, 3] }),
+      rule({ frequency: "Weekly", interval: 3 }),
+      rule({ frequency: "Monthly", dayOfMonth: 30 }),
+      rule({ frequency: "Yearly" }),
+    ];
+    for (const r of rules) {
+      for (const stale of ["2026-09-30", "2026-10-01", "2026-01-05", "2024-02-29"]) {
+        expect(catchUpDueDate(r, stale, today) >= today).toBe(true);
+      }
+    }
+  });
+
+  it("leaves a due date that is today or later untouched", () => {
+    const r = rule({ frequency: "Daily" });
+    expect(catchUpDueDate(r, "2026-09-03", "2026-09-03")).toBe("2026-09-03");
+    expect(catchUpDueDate(r, "2026-09-04", "2026-09-03")).toBe("2026-09-04");
+  });
+
+  it("keeps the cycle phase instead of landing on today", () => {
+    // Every 3 days from Aug 31 -> Sep 3 is on-cycle; every 2 days -> Sep 4.
+    expect(catchUpDueDate(rule({ frequency: "Daily", interval: 3 }), "2026-08-31", "2026-09-03")).toBe(
+      "2026-09-03",
+    );
+    expect(catchUpDueDate(rule({ frequency: "Daily", interval: 2 }), "2026-08-31", "2026-09-03")).toBe(
+      "2026-09-04",
+    );
+  });
+
+  it("keeps a weekly task on its own weekdays", () => {
+    // 2026-08-24 Mon; Mon/Wed rule missed for a fortnight, today Thu 2026-09-03.
+    expect(
+      catchUpDueDate(rule({ frequency: "Weekly", daysOfWeek: [1, 3] }), "2026-08-24", "2026-09-03"),
+    ).toBe("2026-09-07");
+  });
+
+  it("clamps a monthly 31st rule to the target month", () => {
+    expect(
+      catchUpDueDate(rule({ frequency: "Monthly", dayOfMonth: 31 }), "2026-07-31", "2026-09-03"),
+    ).toBe("2026-09-30");
+  });
+
+  it("hands an expired rule a date past its endDate, so the caller can skip it", () => {
+    const r = rule({ frequency: "Daily", endDate: "2026-09-01" });
+    const next = catchUpDueDate(r, "2026-08-31", "2026-09-03");
+    expect(next).toBe("2026-09-03");
+    expect(isRuleExpired(r, next)).toBe(true);
   });
 });

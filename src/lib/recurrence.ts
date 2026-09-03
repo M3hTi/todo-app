@@ -139,3 +139,24 @@ export function nextDueDateAfterCompletion(
   }
   return next;
 }
+
+/**
+ * A missed recurring task's new due date: the first occurrence **on or after**
+ * `today`, walked in whole rule-steps from the stale `dueDate` so the occurrence
+ * lattice is preserved (a fortnightly Monday stays on its own Mondays, and the
+ * history strip keeps reading the same past days as scheduled). Returns
+ * `dueDate` unchanged when it has not gone stale.
+ *
+ * Unlike nextDueDateAfterCompletion this stops *at* today rather than past it —
+ * nothing was completed, so today's occurrence is still owed. Missed days are
+ * not replayed; their absence in the completion log is the record (ADR-0003).
+ *
+ * Terminates because getNextDueDate(rule, X) is always strictly after X.
+ */
+export function catchUpDueDate(rule: RecurringRule, dueDate: string, today: string): string {
+  let next = dueDate;
+  while (next < today) {
+    next = getNextDueDate(rule, next);
+  }
+  return next;
+}

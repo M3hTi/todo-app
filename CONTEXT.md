@@ -35,6 +35,11 @@ state and pushes it in.
   completedAt → null) **and writes a Completion row** — the record holds only the
   *next* occurrence, so the log is the only per-day history. An expired rule (next
   occurrence > endDate) is cleared and the task stays Completed.
+  A **missed** occurrence moves the due date too: at startup and at midnight,
+  `rollForwardMissedRecurring` catches every open recurring task up to its first
+  occurrence **on or after today** (whole rule-steps, so the cycle keeps its
+  phase; no completion rows written, so the misses stay missed). Expired rules
+  are skipped and stay overdue. See ADR-0004.
 - **Completion** — one row in `task_completions` = "this task was done on this
   local day". **No row means not done that day**; misses are never written.
   Credited to the day the user clicked, *not* the occurrence satisfied, so days
@@ -109,11 +114,13 @@ import parse-vs-schema errors, `assembleTasks` scoped SELECTs, `recurrence.test.
 (**defense-in-depth only** — the dialog plugin auto-grants picked paths, so
 import/export are NOT gated by `fs:scope`).
 
-Three ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
+Four ADRs are written and ratified: `docs/adr/0001-reminder-scheduling-model.md`
 (in-app 60s polling, not OS scheduling),
 `docs/adr/0002-recurrence-rollforward-anchor.md` (due-date anchor, skip missed)
-and `docs/adr/0003-completion-day-anchor.md` (completions credited to the day the
-work happened; a row means done, absence means not done).
+`docs/adr/0003-completion-day-anchor.md` (completions credited to the day the
+work happened; a row means done, absence means not done) and
+`docs/adr/0004-catch-up-missed-recurring-due-dates.md` (a missed recurring task
+catches up to today at startup / midnight).
 
 ## Roadmap
 **`docs/ROADMAP.md`** — now a completed record of the post-v0.2 pass, kept until
@@ -131,9 +138,9 @@ a new roadmap replaces it. This file no longer carries a roadmap section.
   Revisit only if a list outgrows a per-keystroke scan (see ROADMAP item 8).
 - **One task row per occurrence** — rejected in ADR-0003. The completion log
   gives per-day history without unbounded row growth or rewriting every query.
-- **Auto-rolling a missed recurring task's `dueDate` forward** — deliberately
-  deferred, not rejected. Now safe to add (misses are logged, so advancing the
-  due date no longer destroys the only evidence), but it touches tray, calendar
-  and reminders, so it needs its own pass.
+- **Treating recurrence as an obligation ledger** — a missed occurrence now
+  advances the due date (ADR-0004), so the app shows the next cadence date, not
+  a count of what was skipped. Misses live in the completion log and the history
+  strip. An "N missed" badge is the upgrade path, not shipped.
 - **Adherence metrics** ("4 of 7 scheduled days") — derivable via
   `isOccurrenceOn`, not shipped. The heatmap is an *activity* view by design.
