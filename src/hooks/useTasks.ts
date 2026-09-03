@@ -4,8 +4,8 @@ import { format, parseISO } from "date-fns";
 import type { Task } from "@/types";
 import { selectFilteredTasks, useTaskStore } from "@/store/useTaskStore";
 import { useCompletionStore } from "@/store/useCompletionStore";
-import { isRuleExpired, nextDueDateAfterCompletion } from "@/lib/recurrence";
-import { reminderForNextOccurrence } from "@/lib/reminder";
+import { catchUpDueDate, isRuleExpired, nextDueDateAfterCompletion } from "@/lib/recurrence";
+import { dueDatePatch, reminderForNextOccurrence } from "@/lib/reminder";
 
 /** Tasks after search, filters and sort — the list every view renders from. */
 export function useFilteredTasks(): Task[] {
@@ -98,6 +98,39 @@ async function doToggle(task: Task): Promise<void> {
     occurrenceDate: today,
     completedAt,
   });
+}
+
+/**
+ * Catches missed recurring tasks up to today: a daily habit last done on the
+ * 30th should be due today on the 3rd, not still showing the 30th. Runs at
+ * startup and on midnight rollover (the app stays open for days).
+ *
+ * Only the due date moves — the missed days keep their record as the *absence*
+ * of completion-log rows, which is what the history strip and heatmap read
+ * (ADR-0003, which deferred exactly this). Tasks whose rule has run past its
+ * endDate are left alone: that habit is over, not late.
+ */
+export async function rollForwardMissedRecurring(): Promise<void> {
+  const store = useTaskStore.getState();
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  // Iterating the snapshot taken here is deliberate: updateTask replaces the
+  // array on every write, and each task is only ever visited once.
+  try {
+    for (const task of store.tasks) {
+      if (!task.recurringRule || !task.dueDate || task.dueDate >= today) continue;
+      if (task.status === "Completed" || task.status === "Cancelled") continue;
+
+      const next = catchUpDueDate(task.recurringRule, task.dueDate, today);
+      if (next === task.dueDate || isRuleExpired(task.recurringRule, next)) continue;
+
+      // dueDatePatch, not a bare { dueDate }: a relative reminder has to re-anchor
+      // or it keeps firing against the stale date.
+      await store.updateTask(task.id, dueDatePatch(task, next));
+    }
+  } catch {
+    toast.error("Failed to reschedule recurring tasks.");
+  }
 }
 
 /** The currently selected task, if any. */

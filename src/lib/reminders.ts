@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Task } from "@/types";
 import { useTaskStore } from "@/store/useTaskStore";
 import { refreshIfDayChanged } from "@/store/useCompletionStore";
+import { rollForwardMissedRecurring } from "@/hooks/useTasks";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import {
   advanceAfterFire,
@@ -111,7 +112,10 @@ export function startReminderLoop(intervalMs = 60_000): () => void {
     // checkbox state and heatmap column would persist into the new day. This
     // rides the existing minute tick rather than owning a timer, so it must sit
     // ABOVE the early return below or it never runs on a quiet tick.
-    await refreshIfDayChanged();
+    if (await refreshIfDayChanged()) {
+      // New day: yesterday's recurring due dates are now stale.
+      await rollForwardMissedRecurring();
+    }
 
     const store = useTaskStore.getState();
     const nowIso = new Date().toISOString();

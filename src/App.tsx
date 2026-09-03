@@ -26,7 +26,7 @@ import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTagStore } from "@/store/useTagStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useCompletionStore } from "@/store/useCompletionStore";
-import { useFilteredTasks } from "@/hooks/useTasks";
+import { rollForwardMissedRecurring, useFilteredTasks } from "@/hooks/useTasks";
 import { AppShell } from "@/components/layout/AppShell";
 import { TaskListPage, type TaskGroup } from "@/components/tasks/TaskListPage";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
@@ -251,6 +251,9 @@ function App() {
           // so a bad read must not put the app on the startup error screen.
           useCompletionStore.getState().load(),
         ]);
+        // Before first paint, so a habit missed while the app was closed shows
+        // up under Today rather than as an overdue date from last month.
+        await rollForwardMissedRecurring();
         if (!cancelled) {
           setStartup({ status: "ready" });
           void checkForUpdate();
