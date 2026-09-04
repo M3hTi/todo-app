@@ -91,8 +91,10 @@ state and pushes it in.
 - **Update check** (`src/lib/updater.ts`) — once per launch against the GitHub
   release feed; offers download-install-restart. Silent on failure.
 
-## Current state (2026-08)
-v0.5.0 is the current release — the task-row context menu (spec:
+## Current state (2026-09)
+v0.5.2 is the current release — the native Windows title bar now follows the
+app theme (`window.setTheme()` in `applyTheme`). v0.5.1 caught missed recurring
+tasks up to today; v0.5.0 added the task-row context menu (spec:
 `docs/superpowers/specs/2026-08-29-context-menus.md`). v0.4.x shipped per-day
 completions + the activity heatmap (migration **v3**, `task_completions`). This closed a real gap — a
 recurring task previously kept *no* completion history at all, so days could not
