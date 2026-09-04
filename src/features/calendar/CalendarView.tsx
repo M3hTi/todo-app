@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   addMonths,
@@ -17,6 +17,9 @@ import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import type { Task } from "@/types";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCategoryStore } from "@/store/useCategoryStore";
+import { useCompletionStore } from "@/store/useCompletionStore";
+import { occurrencesFor, type Occurrence } from "@/lib/completions";
+import { getTaskCompletionsInRange } from "@/lib/queries/completions";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { NewTaskButton } from "@/components/shared/NewTaskButton";
 import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
@@ -25,10 +28,24 @@ import { cn } from "@/lib/utils";
 const WEEKDAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
 const MAX_CHIPS = 2;
 
+const CHIP_STATE_CLASSES: Record<Occurrence["state"], string> = {
+  done: "bg-[var(--cal-event-bg)] text-[var(--cal-event-text)] line-through opacity-60",
+  missed: "bg-[var(--urgent-bg)] text-[var(--urgent-text)]",
+  pending: "bg-[var(--cal-event-bg)] text-[var(--cal-event-text)]",
+};
+
+const CHIP_STATE_TEXT: Record<Occurrence["state"], string> = {
+  done: "completed",
+  missed: "missed",
+  pending: "scheduled",
+};
+
 export function CalendarView() {
   const tasks = useTaskStore((state) => state.tasks);
   const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
   const categories = useCategoryStore((state) => state.categories);
+  const completionsByDate = useCompletionStore((state) => state.completionsByDate);
+  const todayKey = useCompletionStore((state) => state.dayKey);
   const navigate = useNavigate();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
 
@@ -36,17 +53,6 @@ export function CalendarView() {
     setSelectedTask(id);
     navigate("/all");
   };
-
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of tasks) {
-      if (!task.dueDate) continue;
-      const list = map.get(task.dueDate) ?? [];
-      list.push(task);
-      map.set(task.dueDate, list);
-    }
-    return map;
-  }, [tasks]);
 
   const days = useMemo(
     () =>
@@ -56,10 +62,55 @@ export function CalendarView() {
       }),
     [month],
   );
+  const dayKeys = useMemo(() => days.map((day) => format(day, "yyyy-MM-dd")), [days]);
+  const first = dayKeys[0] as string;
+  const last = dayKeys[dayKeys.length - 1] as string;
 
-  const scheduledThisMonth = tasks.filter(
-    (task) => task.dueDate && isSameMonth(parseISO(task.dueDate), month),
-  ).length;
+  // Which task was completed on which visible day. A recurring task keeps no
+  // per-day state on the record — it rolls forward — so the completion log is
+  // the only thing that can tell a done day from a missed one.
+  const [completedByTask, setCompletedByTask] = useState(() => new Map<string, Set<string>>());
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await getTaskCompletionsInRange(first, last);
+        if (cancelled) return;
+        const map = new Map<string, Set<string>>();
+        for (const row of rows) {
+          const dates = map.get(row.taskId) ?? new Set<string>();
+          dates.add(row.date);
+          map.set(row.taskId, dates);
+        }
+        setCompletedByTask(map);
+      } catch {
+        // History is additive: a read failure leaves the grid showing the
+        // schedule only, it does not blank the calendar.
+        if (!cancelled) setCompletedByTask(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // completionsByDate changes on every check and uncheck — that is the refresh.
+  }, [first, last, completionsByDate]);
+
+  const occurrencesByDate = useMemo(() => {
+    const map = new Map<string, Array<{ task: Task; state: Occurrence["state"] }>>();
+    for (const task of tasks) {
+      const done = completedByTask.get(task.id) ?? new Set<string>();
+      for (const occurrence of occurrencesFor(task, dayKeys, done, todayKey)) {
+        const list = map.get(occurrence.date) ?? [];
+        list.push({ task, state: occurrence.state });
+        map.set(occurrence.date, list);
+      }
+    }
+    return map;
+  }, [tasks, dayKeys, completedByTask, todayKey]);
+
+  const scheduledThisMonth = dayKeys
+    .filter((key) => isSameMonth(parseISO(key), month))
+    .reduce((total, key) => total + (occurrencesByDate.get(key)?.length ?? 0), 0);
 
   const upcoming = useMemo(
     () =>
@@ -134,7 +185,7 @@ export function CalendarView() {
           <div className="grid flex-1 auto-rows-fr grid-cols-7 gap-1">
             {days.map((day) => {
               const dayKey = format(day, "yyyy-MM-dd");
-              const dayTasks = tasksByDate.get(dayKey) ?? [];
+              const dayTasks = occurrencesByDate.get(dayKey) ?? [];
               const inMonth = isSameMonth(day, month);
               const weekend = day.getDay() === 0 || day.getDay() === 6;
               const today = isToday(day);
@@ -161,16 +212,19 @@ export function CalendarView() {
                     {format(day, "d")}
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    {dayTasks.slice(0, MAX_CHIPS).map((task) => {
+                    {dayTasks.slice(0, MAX_CHIPS).map(({ task, state }) => {
                       const category = categories.find((c) => c.id === task.categoryId);
+                      const label = `${task.title} — ${CHIP_STATE_TEXT[state]}`;
                       return (
                         <button
                           key={task.id}
                           type="button"
                           onClick={() => openTask(task.id)}
+                          title={label}
+                          aria-label={label}
                           className={cn(
-                            "flex items-center gap-1.5 truncate rounded-[6px] bg-[var(--cal-event-bg)] px-1.5 py-1 text-left text-[11px] font-medium text-[var(--cal-event-text)]",
-                            task.status === "Completed" && "line-through opacity-60",
+                            "flex items-center gap-1.5 truncate rounded-[6px] px-1.5 py-1 text-left text-[11px] font-medium",
+                            CHIP_STATE_CLASSES[state],
                           )}
                         >
                           <span
@@ -178,7 +232,7 @@ export function CalendarView() {
                             style={{
                               backgroundColor: category
                                 ? categoryDotColor(category.color)
-                                : "var(--cal-event-text)",
+                                : "currentColor",
                             }}
                           />
                           <span className="truncate">{task.title}</span>

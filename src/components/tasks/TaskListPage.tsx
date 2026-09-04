@@ -24,6 +24,8 @@ const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
 export interface TaskGroup {
   label?: string;
   tasks: Task[];
+  /** taskId → date to render instead of the task's own dueDate. */
+  displayDates?: ReadonlyMap<string, string>;
 }
 
 interface TaskListPageProps {
@@ -116,7 +118,11 @@ export function TaskListPage({
                       )}
                       <div role="list" aria-label={group.label ?? title} className="flex flex-col gap-2">
                         {group.tasks.map((task) => (
-                          <TaskCard key={task.id} task={task} />
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            displayDate={group.displayDates?.get(task.id)}
+                          />
                         ))}
                       </div>
                     </div>

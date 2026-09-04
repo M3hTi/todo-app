@@ -18,9 +18,15 @@ export function isTaskOverdue(task: Task): boolean {
 
 interface TaskCardProps {
   task: Task;
+  /**
+   * Date to show instead of `task.dueDate` — Upcoming lists a recurring task
+   * under its next projected occurrence, which the record won't hold until
+   * today's is completed. Display only; the checkbox still toggles today.
+   */
+  displayDate?: string;
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, displayDate }: TaskCardProps) {
   const selectedTaskId = useTaskStore((state) => state.selectedTaskId);
   const setSelectedTask = useTaskStore((state) => state.setSelectedTask);
   const category = useCategoryStore((state) =>
@@ -30,15 +36,16 @@ export function TaskCard({ task }: TaskCardProps) {
   // Completion state, not status: a recurring task done today reads as 'Not
   // Started' (it already rolled forward to tomorrow) but must render as checked.
   const completed = useCompletionStore((state) => isDoneToday(task, state.todayDone));
-  const dueToday = task.dueDate !== undefined && isToday(parseISO(task.dueDate));
+  const shownDate = displayDate ?? task.dueDate;
+  const dueToday = shownDate !== undefined && isToday(parseISO(shownDate));
   const subtaskTotal = task.subtasks.length;
   const subtaskDone = task.subtasks.filter((subtask) => subtask.completed).length;
   const progressPct = subtaskTotal > 0 ? Math.round((subtaskDone / subtaskTotal) * 100) : 0;
   const firstTag = task.tags[0];
-  const dueLabel = task.dueDate
+  const dueLabel = shownDate
     ? dueToday
       ? "Today"
-      : format(parseISO(task.dueDate), "MMM d")
+      : format(parseISO(shownDate), "MMM d")
     : undefined;
 
   return (

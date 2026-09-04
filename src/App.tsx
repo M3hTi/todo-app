@@ -27,6 +27,7 @@ import { useTagStore } from "@/store/useTagStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useCompletionStore } from "@/store/useCompletionStore";
 import { rollForwardMissedRecurring, useFilteredTasks } from "@/hooks/useTasks";
+import { upcomingDueDate } from "@/lib/recurrence";
 import { AppShell } from "@/components/layout/AppShell";
 import { TaskListPage, type TaskGroup } from "@/components/tasks/TaskListPage";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
@@ -96,13 +97,26 @@ type UpcomingGroup = (typeof UPCOMING_GROUPS)[number];
 function UpcomingView() {
   const filtered = useFilteredTasks();
   const today = format(new Date(), "yyyy-MM-dd");
-  const upcoming = filtered.filter(
-    (task) => isOpen(task) && task.dueDate !== undefined && task.dueDate > today,
+
+  // Projected, not read off the record: a recurring task keeps today's due date
+  // until today's occurrence is completed, which used to keep it out of this
+  // list entirely. See upcomingDueDate in src/lib/recurrence.ts.
+  const nextDates = new Map<string, string>();
+  const upcoming = filtered.filter((task) => {
+    if (!isOpen(task)) return false;
+    const next = upcomingDueDate(task.recurringRule, task.dueDate, today);
+    if (next === undefined || next <= today) return false;
+    nextDates.set(task.id, next);
+    return true;
+  });
+
+  upcoming.sort((a, b) =>
+    (nextDates.get(a.id) as string).localeCompare(nextDates.get(b.id) as string),
   );
 
   const byGroup = new Map<UpcomingGroup, Task[]>(UPCOMING_GROUPS.map((group) => [group, []]));
   for (const task of upcoming) {
-    const date = parseISO(task.dueDate as string);
+    const date = parseISO(nextDates.get(task.id) as string);
     const group: UpcomingGroup = isToday(date)
       ? "Today"
       : isTomorrow(date)
@@ -115,6 +129,7 @@ function UpcomingView() {
   const groups: TaskGroup[] = UPCOMING_GROUPS.map((label) => ({
     label,
     tasks: byGroup.get(label) ?? [],
+    displayDates: nextDates,
   }));
 
   return (

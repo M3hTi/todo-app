@@ -41,6 +41,10 @@ export interface DayCell {
  * Days before the task was created are always `not-scheduled`: the rule would
  * happily project occurrences back into 2019, and painting those "missed" would
  * invent a failure history for a task made yesterday.
+ *
+ * With no `anchorDueDate` the task has no schedule at all (an ongoing habit with
+ * a repeat rule but no due date), so no day is ever owed: the strip shows the
+ * days it was actually done and nothing else.
  */
 export function buildDayStrip(
   rule: RecurringRule | undefined,
@@ -63,8 +67,68 @@ export function buildDayStrip(
       ? isOccurrenceOn(rule, date, anchorDueDate)
       : date === anchorDueDate;
 
-    if (done) return { date, state: scheduled ? "done" : ("done-off-schedule" as const) };
+    // `done-off-schedule` means "real work on a day the rule didn't ask for",
+    // which only means anything when there *is* a schedule to be off. A task
+    // with no anchor has none, so its completions are plain `done`.
+    if (done) {
+      const offSchedule = anchorDueDate !== undefined && !scheduled;
+      return { date, state: offSchedule ? ("done-off-schedule" as const) : ("done" as const) };
+    }
     if (!scheduled) return { date, state: "not-scheduled" as const };
     return { date, state: date < today ? ("missed" as const) : ("pending" as const) };
   });
+}
+
+/** One calendar cell's entry for a task: which day, and how that day went. */
+export interface Occurrence {
+  taskId: string;
+  date: string;
+  state: "done" | "missed" | "pending";
+}
+
+/**
+ * The task's occurrences among `dates`, so a recurring task shows up on every
+ * day the rule asked for — not just the single `dueDate` the record happens to
+ * be parked on. Same reasoning as buildDayStrip: the rule projects occurrences,
+ * the completion log grades them, and days before the task existed are skipped
+ * so a habit made yesterday doesn't paint a month of failures.
+ *
+ * A completion on an unscheduled day still counts as `done` here (the calendar
+ * shows the day work happened); the strip's finer `done-off-schedule` shading
+ * is not worth a fifth chip colour.
+ *
+ * A recurring task with no due date has no anchor, so isOccurrenceOn projects
+ * nothing for it and only its real completions land on the grid — no `missed`,
+ * no `pending`, no chip at all on a day it was not done. That is deliberate: a
+ * dateless repeat is an ongoing habit, and painting a daily one across every
+ * cell of the month was clutter that also invented a failure history.
+ */
+export function occurrencesFor(
+  task: Pick<Task, "id" | "status" | "dueDate" | "createdAt" | "recurringRule">,
+  dates: readonly string[],
+  completedDates: ReadonlySet<string>,
+  today: string,
+): Occurrence[] {
+  const rule = task.recurringRule;
+
+  // ponytail: one-off tasks keep their existing single-chip behaviour.
+  if (!rule) {
+    if (!task.dueDate || !dates.includes(task.dueDate)) return [];
+    const state = task.status === "Completed" ? "done" : "pending";
+    return [{ taskId: task.id, date: task.dueDate, state }];
+  }
+
+  const createdDay = format(parseISO(task.createdAt), "yyyy-MM-dd");
+  const result: Occurrence[] = [];
+  for (const date of dates) {
+    if (date < createdDay) continue;
+    const done = completedDates.has(date);
+    if (!done && !isOccurrenceOn(rule, date, task.dueDate)) continue;
+    result.push({
+      taskId: task.id,
+      date,
+      state: done ? "done" : date < today ? "missed" : "pending",
+    });
+  }
+  return result;
 }
