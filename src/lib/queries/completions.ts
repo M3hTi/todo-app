@@ -150,3 +150,18 @@ export async function getCompletionDatesForTask(
     return rows.map((row) => row.occurrence_date);
   });
 }
+
+/** Which tasks were completed on which days in a range — the calendar's read. */
+export async function getTaskCompletionsInRange(
+  fromDate: string,
+  toDate: string,
+): Promise<Array<{ taskId: string; date: string }>> {
+  return withDb("getTaskCompletionsInRange", async () => {
+    const rows = await getDb().select<Array<{ task_id: string; occurrence_date: string }>>(
+      `SELECT task_id, occurrence_date FROM task_completions
+        WHERE task_id IS NOT NULL AND occurrence_date BETWEEN $1 AND $2`,
+      [fromDate, toDate],
+    );
+    return rows.map((row) => ({ taskId: row.task_id, date: row.occurrence_date }));
+  });
+}

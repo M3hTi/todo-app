@@ -311,3 +311,182 @@ describe("buildDayStrip", () => {
     });
   });
 });
+
+describe("occurrencesFor", () => {
+  const OLD = "2020-01-01T09:00:00.000Z";
+  const week = ["2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28"];
+  const base = { id: "t1", status: "Not Started" as const, createdAt: OLD };
+  const states = (list: Array<{ date: string; state: string }>) =>
+    Object.fromEntries(list.map((o) => [o.date, o.state]));
+
+  it("grades every past occurrence of a recurring task, not just its due date", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const task = {
+      ...base,
+      dueDate: "2026-08-27", // the record only ever holds the next occurrence
+      recurringRule: { frequency: "Daily" as const, interval: 1 },
+    };
+    expect(states(occurrencesFor(task, week, new Set(["2026-08-25"]), "2026-08-26"))).toEqual({
+      "2026-08-24": "missed",
+      "2026-08-25": "done",
+      "2026-08-26": "pending",
+      "2026-08-27": "pending",
+      "2026-08-28": "pending",
+    });
+  });
+
+  it("skips days the rule never asked for, and days before the task existed", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const task = {
+      ...base,
+      createdAt: "2026-08-25T09:00:00.000Z",
+      dueDate: "2026-08-28",
+      // Mon/Wed/Fri: Aug 24 Mon, 26 Wed, 28 Fri.
+      recurringRule: { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3, 5] },
+    };
+    expect(states(occurrencesFor(task, week, new Set(), "2026-08-27"))).toEqual({
+      "2026-08-26": "missed", // scheduled, past, no log row
+      "2026-08-28": "pending",
+    });
+  });
+
+  it("leaves one-off tasks as a single chip on their due date", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const task = { ...base, status: "Completed" as const, dueDate: "2026-08-25" };
+    expect(occurrencesFor(task, week, new Set(), "2026-08-26")).toEqual([
+      { taskId: "t1", date: "2026-08-25", state: "done" },
+    ]);
+  });
+});
+
+describe("dateless recurring tasks — habit with no schedule anchor", () => {
+  const OLD = "2020-01-01T09:00:00.000Z";
+  const FREQUENCIES = ["Daily", "Weekly", "Monthly", "Yearly"] as const;
+  const week = ["2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07", "2026-09-08"];
+  const today = "2026-09-07";
+  const states = (list: Array<{ date: string; state: string }>) =>
+    Object.fromEntries(list.map((o) => [o.date, o.state]));
+
+  const task = (frequency: (typeof FREQUENCIES)[number]) => ({
+    id: "t1",
+    status: "Not Started" as const,
+    dueDate: undefined,
+    createdAt: OLD,
+    recurringRule: { frequency, interval: 1 },
+  });
+
+  it.each(FREQUENCIES)("%s with no due date puts no chip on the calendar", async (frequency) => {
+    const { occurrencesFor } = await import("./completions");
+    expect(occurrencesFor(task(frequency), week, new Set(), today)).toEqual([]);
+  });
+
+  it.each(FREQUENCIES)("%s still shows the days it was actually done", async (frequency) => {
+    const { occurrencesFor } = await import("./completions");
+    // The reported example: completed Sep 5 and Sep 6, nothing on Sep 7.
+    const done = new Set(["2026-09-05", "2026-09-06"]);
+    expect(states(occurrencesFor(task(frequency), week, done, today))).toEqual({
+      "2026-09-05": "done",
+      "2026-09-06": "done",
+    });
+  });
+
+  it("never marks a past day missed, however long the gap", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const out = occurrencesFor(task("Daily"), week, new Set(["2026-09-04"]), today);
+    expect(out.map((o) => o.state)).toEqual(["done"]);
+  });
+
+  it.each(FREQUENCIES)(
+    "%s history strip shows completions and nothing else",
+    async (frequency) => {
+      const { buildDayStrip } = await import("./completions");
+      const cells = buildDayStrip(
+        { frequency, interval: 1 },
+        undefined, // no due date
+        OLD,
+        new Set(["2026-09-05", "2026-09-06"]),
+        4,
+        today,
+      );
+      expect(states(cells)).toEqual({
+        "2026-09-04": "not-scheduled",
+        "2026-09-05": "done",
+        "2026-09-06": "done",
+        "2026-09-07": "not-scheduled",
+      });
+    },
+  );
+
+  it("keeps done-off-schedule for tasks that do have a schedule to be off", async () => {
+    const { buildDayStrip } = await import("./completions");
+    // Mon/Wed/Fri anchored on Fri Sep 4; completed Sat Sep 5, an unscheduled day.
+    const cells = buildDayStrip(
+      { frequency: "Weekly", interval: 1, daysOfWeek: [1, 3, 5] },
+      "2026-09-04",
+      OLD,
+      new Set(["2026-09-05"]),
+      2,
+      "2026-09-05",
+    );
+    expect(states(cells)).toEqual({
+      "2026-09-04": "missed",
+      "2026-09-05": "done-off-schedule",
+    });
+  });
+
+  it("leaves anchored recurring tasks completely alone", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const anchored = {
+      ...task("Daily"),
+      dueDate: "2026-09-08",
+    };
+    expect(states(occurrencesFor(anchored, week, new Set(["2026-09-05"]), today))).toEqual({
+      "2026-09-04": "missed",
+      "2026-09-05": "done",
+      "2026-09-06": "missed",
+      "2026-09-07": "pending",
+      "2026-09-08": "pending",
+    });
+  });
+});
+
+describe("completing a dateless habit does not give it a schedule", () => {
+  const daily = { frequency: "Daily" as const, interval: 1 };
+
+  it("logs the day and leaves dueDate unset", async () => {
+    const habit = task({ id: "h1", recurringRule: daily }); // no dueDate
+    await seedStores(habit, TUESDAY);
+
+    await toggleTaskComplete(habit);
+
+    // The completion is recorded…
+    expect(rows.has(key("h1", TUESDAY))).toBe(true);
+    // …but the habit is still anchorless, so nothing becomes "scheduled".
+    expect(current.dueDate).toBeUndefined();
+    expect(current.status).toBe("Not Started");
+  });
+
+  it("snapshots no prevDueDate, so undo leaves it dateless too", async () => {
+    const habit = task({ id: "h2", recurringRule: daily });
+    await seedStores(habit, TUESDAY);
+
+    await toggleTaskComplete(habit);
+    expect(rows.get(key("h2", TUESDAY))?.prevDueDate).toBeUndefined();
+
+    await seedStores(current, TUESDAY); // re-seed: todayDone now has h2
+    await toggleTaskComplete(current);
+
+    expect(rows.has(key("h2", TUESDAY))).toBe(false);
+    expect(current.dueDate).toBeUndefined();
+  });
+
+  it("still rolls an anchored recurring task forward as before", async () => {
+    const anchored = task({ id: "h3", dueDate: TUESDAY, recurringRule: daily });
+    await seedStores(anchored, TUESDAY);
+
+    await toggleTaskComplete(anchored);
+
+    expect(current.dueDate).toBe(WEDNESDAY);
+    expect(rows.get(key("h3", TUESDAY))?.prevDueDate).toBe(TUESDAY);
+  });
+});

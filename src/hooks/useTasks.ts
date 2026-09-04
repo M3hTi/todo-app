@@ -82,6 +82,14 @@ async function doToggle(task: Task): Promise<void> {
       await store.updateTask(task.id, { status: "Completed", completedAt, recurringRule: null });
       return;
     }
+    // A repeat with no due date is an ongoing habit with no schedule anchor, and
+    // completing it must not quietly give it one: rolling forward here would
+    // stamp on tomorrow's date and turn the habit into a scheduled task from its
+    // very first completion. The log row is the whole record for these.
+    if (task.dueDate === undefined) {
+      await store.updateTask(task.id, { status: "Not Started", completedAt: null });
+      return;
+    }
     await store.updateTask(task.id, {
       status: "Not Started",
       dueDate: nextDueDate,

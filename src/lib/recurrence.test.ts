@@ -6,6 +6,7 @@ import {
   isOccurrenceOn,
   isRuleExpired,
   nextDueDateAfterCompletion,
+  upcomingDueDate,
 } from "./recurrence";
 
 // 2026-06-17 is a Wednesday (getDay === 3); 2026 is NOT a leap year (Feb has 28 days).
@@ -318,5 +319,61 @@ describe("catchUpDueDate — missed occurrences roll up to today", () => {
     const next = catchUpDueDate(r, "2026-08-31", "2026-09-03");
     expect(next).toBe("2026-09-03");
     expect(isRuleExpired(r, next)).toBe(true);
+  });
+});
+
+describe("upcomingDueDate", () => {
+  const daily = { frequency: "Daily" as const, interval: 1 };
+
+  it("projects past today's still-open occurrence — the Upcoming bug", () => {
+    // Due today and NOT completed, so the record still says today. Upcoming has
+    // to list tomorrow anyway rather than hiding the task until it is checked.
+    expect(upcomingDueDate(daily, "2026-08-26", "2026-08-26")).toBe("2026-08-27");
+  });
+
+  it("passes a future due date through untouched", () => {
+    expect(upcomingDueDate(daily, "2026-08-30", "2026-08-26")).toBe("2026-08-30");
+    expect(upcomingDueDate(undefined, "2026-08-30", "2026-08-26")).toBe("2026-08-30");
+  });
+
+  it("has no next time once the rule has ended, or with no due date", () => {
+    expect(
+      upcomingDueDate({ ...daily, endDate: "2026-08-26" }, "2026-08-26", "2026-08-26"),
+    ).toBeUndefined();
+    expect(upcomingDueDate(daily, undefined, "2026-08-26")).toBeUndefined();
+  });
+});
+
+describe("isOccurrenceOn — a rule with no anchor schedules nothing", () => {
+  // Every day of a week, so a frequency that leaked through would be obvious.
+  const week = [
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-29",
+    "2026-08-30",
+  ];
+
+  it.each(["Daily", "Weekly", "Monthly", "Yearly"] as const)(
+    "%s with no due date matches no day at all",
+    (frequency) => {
+      const noAnchor = rule({ frequency });
+      expect(week.filter((day) => isOccurrenceOn(noAnchor, day, undefined))).toEqual([]);
+    },
+  );
+
+  it("ignores the rule's own shape — day-of-week and day-of-month cannot rescue it", () => {
+    expect(
+      isOccurrenceOn(rule({ frequency: "Weekly", daysOfWeek: [1, 3] }), "2026-08-24", undefined),
+    ).toBe(false);
+    expect(
+      isOccurrenceOn(rule({ frequency: "Monthly", dayOfMonth: 24 }), "2026-08-24", undefined),
+    ).toBe(false);
+  });
+
+  it("still schedules normally once an anchor exists", () => {
+    expect(isOccurrenceOn(rule({ frequency: "Daily" }), "2026-08-24", "2026-08-27")).toBe(true);
   });
 });

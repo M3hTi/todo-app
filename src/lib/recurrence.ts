@@ -73,16 +73,24 @@ export function getNextDueDate(rule: RecurringRule, fromDate: string): string {
  * a day the task was never scheduled on — a Mon/Wed task should not show Tuesday
  * as a failure. Pure calendar arithmetic; it knows nothing about completions or
  * whether the task existed yet.
+ *
+ * **No anchor means no occurrences.** A repeat rule is an offset from a date; a
+ * task carrying a rule but no due date is an ongoing habit with no schedule, so
+ * nothing is owed on any particular day. This used to fall back to anchoring on
+ * `date` itself, which made the arithmetic trivially true and matched *every*
+ * day for *every* frequency — a monthly task then read as missed on the ~30 days
+ * a month it was never scheduled for.
  */
 export function isOccurrenceOn(
   rule: RecurringRule,
   date: string,
   anchorDueDate: string | undefined,
 ): boolean {
+  if (anchorDueDate === undefined) return false;
   if (rule.endDate !== undefined && date > rule.endDate) return false;
 
   const target = parseISO(date);
-  const anchor = parseISO(anchorDueDate ?? date);
+  const anchor = parseISO(anchorDueDate);
   const interval = Math.max(1, Math.floor(rule.interval) || 1);
 
   switch (rule.frequency) {
@@ -159,4 +167,25 @@ export function catchUpDueDate(rule: RecurringRule, dueDate: string, today: stri
     next = getNextDueDate(rule, next);
   }
   return next;
+}
+
+/**
+ * The date a task should be listed under in "Upcoming": the first occurrence
+ * strictly after `today`.
+ *
+ * A recurring task's `dueDate` only moves forward once today's occurrence is
+ * *completed*, so reading it directly hid every still-open habit from Upcoming
+ * until it was checked off. Projecting instead means the next occurrence is
+ * listed either way. Returns undefined when the task has no due date, or when
+ * the rule has run past its endDate — there is no next time.
+ */
+export function upcomingDueDate(
+  rule: RecurringRule | undefined,
+  dueDate: string | undefined,
+  today: string,
+): string | undefined {
+  if (dueDate === undefined) return undefined;
+  if (!rule || dueDate > today) return dueDate;
+  const next = nextDueDateAfterCompletion(rule, dueDate, today);
+  return isRuleExpired(rule, next) ? undefined : next;
 }
