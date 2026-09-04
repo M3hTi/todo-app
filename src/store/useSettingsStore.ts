@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { AppSettings, Theme } from "@/types";
 import { getSettings, setSetting } from "@/lib/queries/settings";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface SettingsStoreState {
   settings: AppSettings;
@@ -24,6 +25,12 @@ const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 function applyTheme(theme: Theme): void {
   const dark = theme === "Dark" || (theme === "System" && systemDarkQuery.matches);
   document.documentElement.classList.toggle("dark", dark);
+  // Native Windows title bar follows the OS, not our CSS - tell it explicitly.
+  try {
+    void getCurrentWindow().setTheme(dark ? "dark" : "light");
+  } catch {
+    // not running under Tauri (tests / browser dev)
+  }
 }
 
 // Re-apply when the OS preference flips while theme is "System".
