@@ -92,7 +92,16 @@ state and pushes it in.
   release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-09)
-v0.5.2 is the current release — the native Windows title bar now follows the
+v0.6.0 is the current release — recurring tasks are now tracked per
+*occurrence*: the calendar grades every projected occurrence against the
+completion log (done/missed/pending) instead of showing only the one date the
+record is parked on, and Upcoming lists the next occurrence whether or not
+today's is done. A repeat rule with **no due date** has no anchor and therefore
+schedules nothing — `isOccurrenceOn` previously fell back to anchoring on the
+day under test, which matched every day for every frequency and invented a
+missed history; such tasks now show only the days they were actually completed,
+and completing one no longer silently assigns it a due date.
+v0.5.2 made the native Windows title bar follow the
 app theme (`window.setTheme()` in `applyTheme`). v0.5.1 caught missed recurring
 tasks up to today; v0.5.0 added the task-row context menu (spec:
 `docs/superpowers/specs/2026-08-29-context-menus.md`). v0.4.x shipped per-day
