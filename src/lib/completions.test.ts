@@ -324,7 +324,9 @@ describe("occurrencesFor", () => {
     const task = {
       ...base,
       dueDate: "2026-08-27", // the record only ever holds the next occurrence
-      recurringRule: { frequency: "Daily" as const, interval: 1 },
+      // An endDate keeps this on the graded path: open-ended rules deliberately
+      // show only completed days (see "open-ended recurring tasks" below).
+      recurringRule: { frequency: "Daily" as const, interval: 1, endDate: "2026-12-31" },
     };
     expect(states(occurrencesFor(task, week, new Set(["2026-08-25"]), "2026-08-26"))).toEqual({
       "2026-08-24": "missed",
@@ -342,7 +344,12 @@ describe("occurrencesFor", () => {
       createdAt: "2026-08-25T09:00:00.000Z",
       dueDate: "2026-08-28",
       // Mon/Wed/Fri: Aug 24 Mon, 26 Wed, 28 Fri.
-      recurringRule: { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3, 5] },
+      recurringRule: {
+        frequency: "Weekly" as const,
+        interval: 1,
+        daysOfWeek: [1, 3, 5],
+        endDate: "2026-12-31",
+      },
     };
     expect(states(occurrencesFor(task, week, new Set(), "2026-08-27"))).toEqual({
       "2026-08-26": "missed", // scheduled, past, no log row
@@ -434,11 +441,12 @@ describe("dateless recurring tasks — habit with no schedule anchor", () => {
     });
   });
 
-  it("leaves anchored recurring tasks completely alone", async () => {
+  it("leaves anchored, bounded recurring tasks completely alone", async () => {
     const { occurrencesFor } = await import("./completions");
     const anchored = {
       ...task("Daily"),
       dueDate: "2026-09-08",
+      recurringRule: { frequency: "Daily" as const, interval: 1, endDate: "2026-12-31" },
     };
     expect(states(occurrencesFor(anchored, week, new Set(["2026-09-05"]), today))).toEqual({
       "2026-09-04": "missed",
@@ -488,5 +496,42 @@ describe("completing a dateless habit does not give it a schedule", () => {
 
     expect(current.dueDate).toBe(WEDNESDAY);
     expect(rows.get(key("h3", TUESDAY))?.prevDueDate).toBe(TUESDAY);
+  });
+});
+
+describe("open-ended recurring tasks — a repeat with no Until date", () => {
+  const week = ["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-10-20"];
+  const today = "2026-09-05";
+  const task = (endDate?: string) => ({
+    id: "t1",
+    status: "Not Started" as const,
+    dueDate: "2026-09-05",
+    createdAt: "2026-08-13T16:19:59.356Z",
+    recurringRule: { frequency: "Daily" as const, interval: 1, endDate },
+  });
+
+  it("shows only completed days, never missed or pending", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const done = new Set(["2026-09-03", "2026-09-05"]);
+    expect(occurrencesFor(task(), week, done, today)).toEqual([
+      { taskId: "t1", date: "2026-09-03", state: "done" },
+      { taskId: "t1", date: "2026-09-05", state: "done" },
+    ]);
+  });
+
+  it("puts no chip at all on a month it was never touched", async () => {
+    const { occurrencesFor } = await import("./completions");
+    expect(occurrencesFor(task(), week, new Set(), today)).toEqual([]);
+  });
+
+  it("still grades occurrences when the rule has an Until date", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const out = occurrencesFor(task("2026-09-30"), week, new Set(["2026-09-03"]), today);
+    expect(out.map((o) => [o.date, o.state])).toEqual([
+      ["2026-09-03", "done"],
+      ["2026-09-04", "missed"],
+      ["2026-09-05", "pending"],
+      ["2026-09-06", "pending"],
+    ]);
   });
 });
