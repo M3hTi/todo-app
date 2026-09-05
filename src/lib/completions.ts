@@ -97,11 +97,11 @@ export interface Occurrence {
  * shows the day work happened); the strip's finer `done-off-schedule` shading
  * is not worth a fifth chip colour.
  *
- * A recurring task with no due date has no anchor, so isOccurrenceOn projects
- * nothing for it and only its real completions land on the grid — no `missed`,
- * no `pending`, no chip at all on a day it was not done. That is deliberate: a
- * dateless repeat is an ongoing habit, and painting a daily one across every
- * cell of the month was clutter that also invented a failure history.
+ * Two kinds of unbounded repeat land only on the days they were actually done —
+ * no `missed`, no `pending`, no chip at all on a day they were not: one with no
+ * due date (no anchor, so isOccurrenceOn projects nothing) and one with no
+ * `endDate` (an open-ended habit). Both used to paper a daily chip across every
+ * cell of every month and invent a failure history back to the creation date.
  */
 export function occurrencesFor(
   task: Pick<Task, "id" | "status" | "dueDate" | "createdAt" | "recurringRule">,
@@ -119,10 +119,20 @@ export function occurrencesFor(
   }
 
   const createdDay = format(parseISO(task.createdAt), "yyyy-MM-dd");
+  // An open-ended rule (no `Until` date) projects occurrences forever in both
+  // directions, which papered every cell of every month with the same chip and
+  // invented a missed-day history back to creation. With no end in sight the
+  // schedule is an ongoing habit, so only the days it was actually done are
+  // real; a bounded rule still grades its occurrences as before.
+  const openEnded = rule.endDate === undefined;
   const result: Occurrence[] = [];
   for (const date of dates) {
     if (date < createdDay) continue;
     const done = completedDates.has(date);
+    if (openEnded) {
+      if (done) result.push({ taskId: task.id, date, state: "done" });
+      continue;
+    }
     if (!done && !isOccurrenceOn(rule, date, task.dueDate)) continue;
     result.push({
       taskId: task.id,
