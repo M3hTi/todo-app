@@ -6,7 +6,7 @@
 // that; `status` still answers whether a one-off task is finished for good.
 import { addDays, format, parseISO, subDays } from "date-fns";
 import type { RecurringRule, Task } from "@/types";
-import { isOccurrenceOn } from "@/lib/recurrence";
+import { isOccurrenceOn, upcomingDueDate } from "@/lib/recurrence";
 
 /**
  * True when the task counts as done for the current day: either it is a one-off
@@ -97,11 +97,18 @@ export interface Occurrence {
  * shows the day work happened); the strip's finer `done-off-schedule` shading
  * is not worth a fifth chip colour.
  *
- * Two kinds of unbounded repeat land only on the days they were actually done —
- * no `missed`, no `pending`, no chip at all on a day they were not: one with no
- * due date (no anchor, so isOccurrenceOn projects nothing) and one with no
- * `endDate` (an open-ended habit). Both used to paper a daily chip across every
- * cell of every month and invent a failure history back to the creation date.
+ * Only the *next* occurrence is projected past today. A daily rule genuinely
+ * does recur every day, so grading the future honestly filled every cell of
+ * every month ahead — true, and unreadable. The past is history and keeps its
+ * full grading; the future is a forecast, and one step of it is enough. What
+ * comes after that is already the Upcoming list's job.
+ *
+ * A repeat with no due date has no anchor at all, so nothing projects and only
+ * its real completions land on the grid — a dateless rule is an ongoing habit,
+ * and nothing is owed on any particular day.
+ *
+ * `endDate` is deliberately not consulted here beyond the cutoff isOccurrenceOn
+ * already applies: `Until` says when a habit stops, not how it should be drawn.
  */
 export function occurrencesFor(
   task: Pick<Task, "id" | "status" | "dueDate" | "createdAt" | "recurringRule">,
@@ -119,20 +126,17 @@ export function occurrencesFor(
   }
 
   const createdDay = format(parseISO(task.createdAt), "yyyy-MM-dd");
-  // An open-ended rule (no `Until` date) projects occurrences forever in both
-  // directions, which papered every cell of every month with the same chip and
-  // invented a missed-day history back to creation. With no end in sight the
-  // schedule is an ongoing habit, so only the days it was actually done are
-  // real; a bounded rule still grades its occurrences as before.
-  const openEnded = rule.endDate === undefined;
+  // The one occurrence allowed past today — the same date Upcoming lists, so the
+  // two views cannot disagree about what comes next. undefined when the task has
+  // no due date to project from, or the rule has run past its endDate.
+  const nextUp = upcomingDueDate(rule, task.dueDate, today);
   const result: Occurrence[] = [];
   for (const date of dates) {
     if (date < createdDay) continue;
     const done = completedDates.has(date);
-    if (openEnded) {
-      if (done) result.push({ taskId: task.id, date, state: "done" });
-      continue;
-    }
+    // A day already worked is history and always shown, however far ahead the
+    // grid is scrolled; an unworked future day is a forecast, capped at one.
+    if (!done && date > today && date !== nextUp) continue;
     if (!done && !isOccurrenceOn(rule, date, task.dueDate)) continue;
     result.push({
       taskId: task.id,
