@@ -92,7 +92,16 @@ state and pushes it in.
   release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-09)
-v0.6.0 is the current release — recurring tasks are now tracked per
+v0.6.1 is the current release — the calendar no longer paints a recurring
+task across every cell ahead of it. A daily rule genuinely does recur every
+day, so grading the whole future was accurate and unreadable; the past keeps
+its full done/missed history and exactly **one** occurrence is projected past
+today, taken from `upcomingDueDate` so the grid and Upcoming cannot disagree
+about what comes next. The cap follows each rule's own step, so a monthly
+repeat still reaches into next month. `endDate` is not consulted for display —
+`Until` says when a habit stops, not how it is drawn — and `occurrencesFor`
+now agrees with `buildDayStrip` on every past day, which it briefly did not.
+v0.6.0 made recurring tasks tracked per
 *occurrence*: the calendar grades every projected occurrence against the
 completion log (done/missed/pending) instead of showing only the one date the
 record is parked on, and Upcoming lists the next occurrence whether or not
