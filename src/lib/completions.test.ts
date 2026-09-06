@@ -324,16 +324,14 @@ describe("occurrencesFor", () => {
     const task = {
       ...base,
       dueDate: "2026-08-27", // the record only ever holds the next occurrence
-      // An endDate keeps this on the graded path: open-ended rules deliberately
-      // show only completed days (see "open-ended recurring tasks" below).
-      recurringRule: { frequency: "Daily" as const, interval: 1, endDate: "2026-12-31" },
+      recurringRule: { frequency: "Daily" as const, interval: 1 },
     };
     expect(states(occurrencesFor(task, week, new Set(["2026-08-25"]), "2026-08-26"))).toEqual({
       "2026-08-24": "missed",
       "2026-08-25": "done",
       "2026-08-26": "pending",
-      "2026-08-27": "pending",
-      "2026-08-28": "pending",
+      "2026-08-27": "pending", // the next occurrence…
+      // …and no "2026-08-28": the forecast stops after one step.
     });
   });
 
@@ -344,12 +342,7 @@ describe("occurrencesFor", () => {
       createdAt: "2026-08-25T09:00:00.000Z",
       dueDate: "2026-08-28",
       // Mon/Wed/Fri: Aug 24 Mon, 26 Wed, 28 Fri.
-      recurringRule: {
-        frequency: "Weekly" as const,
-        interval: 1,
-        daysOfWeek: [1, 3, 5],
-        endDate: "2026-12-31",
-      },
+      recurringRule: { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3, 5] },
     };
     expect(states(occurrencesFor(task, week, new Set(), "2026-08-27"))).toEqual({
       "2026-08-26": "missed", // scheduled, past, no log row
@@ -441,12 +434,11 @@ describe("dateless recurring tasks — habit with no schedule anchor", () => {
     });
   });
 
-  it("leaves anchored, bounded recurring tasks completely alone", async () => {
+  it("leaves anchored recurring tasks completely alone", async () => {
     const { occurrencesFor } = await import("./completions");
     const anchored = {
       ...task("Daily"),
       dueDate: "2026-09-08",
-      recurringRule: { frequency: "Daily" as const, interval: 1, endDate: "2026-12-31" },
     };
     expect(states(occurrencesFor(anchored, week, new Set(["2026-09-05"]), today))).toEqual({
       "2026-09-04": "missed",
@@ -499,39 +491,74 @@ describe("completing a dateless habit does not give it a schedule", () => {
   });
 });
 
-describe("open-ended recurring tasks — a repeat with no Until date", () => {
-  const week = ["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-10-20"];
+describe("forward projection is capped at the next occurrence", () => {
+  const OLD = "2020-01-01T09:00:00.000Z";
   const today = "2026-09-05";
-  const task = (endDate?: string) => ({
+  const daily = {
     id: "t1",
     status: "Not Started" as const,
     dueDate: "2026-09-05",
-    createdAt: "2026-08-13T16:19:59.356Z",
-    recurringRule: { frequency: "Daily" as const, interval: 1, endDate },
+    createdAt: OLD,
+    recurringRule: { frequency: "Daily" as const, interval: 1 },
+  };
+  const states = (list: Array<{ date: string; state: string }>) =>
+    Object.fromEntries(list.map((o) => [o.date, o.state]));
+
+  it("grades the past in full but forecasts only one day ahead", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const week = ["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07"];
+    expect(states(occurrencesFor(daily, week, new Set(["2026-09-03"]), today))).toEqual({
+      "2026-09-03": "done",
+      "2026-09-04": "missed",
+      "2026-09-05": "pending", // today is owed, not a forecast
+      "2026-09-06": "pending", // the next occurrence
+      // 2026-09-07 and beyond: not painted.
+    });
   });
 
-  it("shows only completed days, never missed or pending", async () => {
+  it("leaves a whole future month empty — the reported clutter", async () => {
     const { occurrencesFor } = await import("./completions");
-    const done = new Set(["2026-09-03", "2026-09-05"]);
-    expect(occurrencesFor(task(), week, done, today)).toEqual([
-      { taskId: "t1", date: "2026-09-03", state: "done" },
-      { taskId: "t1", date: "2026-09-05", state: "done" },
-    ]);
+    const october = Array.from(
+      { length: 31 },
+      (_, i) => `2026-10-${String(i + 1).padStart(2, "0")}`,
+    );
+    expect(occurrencesFor(daily, october, new Set(), today)).toEqual([]);
   });
 
-  it("puts no chip at all on a month it was never touched", async () => {
+  it("still shows a completion however far ahead the grid is scrolled", async () => {
     const { occurrencesFor } = await import("./completions");
-    expect(occurrencesFor(task(), week, new Set(), today)).toEqual([]);
+    const out = occurrencesFor(daily, ["2026-10-20"], new Set(["2026-10-20"]), today);
+    expect(out).toEqual([{ taskId: "t1", date: "2026-10-20", state: "done" }]);
   });
 
-  it("still grades occurrences when the rule has an Until date", async () => {
+  it("caps by the rule's own step, not by a fixed window", async () => {
     const { occurrencesFor } = await import("./completions");
-    const out = occurrencesFor(task("2026-09-30"), week, new Set(["2026-09-03"]), today);
-    expect(out.map((o) => [o.date, o.state])).toEqual([
-      ["2026-09-03", "done"],
-      ["2026-09-04", "missed"],
-      ["2026-09-05", "pending"],
-      ["2026-09-06", "pending"],
-    ]);
+    const monthly = {
+      ...daily,
+      dueDate: "2026-10-05",
+      recurringRule: { frequency: "Monthly" as const, interval: 1 },
+    };
+    const october = Array.from(
+      { length: 31 },
+      (_, i) => `2026-10-${String(i + 1).padStart(2, "0")}`,
+    );
+    expect(states(occurrencesFor(monthly, october, new Set(), today))).toEqual({
+      "2026-10-05": "pending",
+    });
+  });
+
+  it("agrees with the history strip on every past day", async () => {
+    const { occurrencesFor, buildDayStrip } = await import("./completions");
+    const days = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"];
+    const done = new Set(["2026-09-02", "2026-09-04"]);
+    const strip = Object.fromEntries(
+      buildDayStrip(daily.recurringRule, daily.dueDate, OLD, done, 5, today).map((c) => [
+        c.date,
+        c.state,
+      ]),
+    );
+    // The two views used to contradict each other: the calendar showed nothing
+    // where the strip said "missed".
+    expect(states(occurrencesFor(daily, days, done, today))).toEqual(strip);
   });
 });
