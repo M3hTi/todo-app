@@ -79,6 +79,96 @@ export function buildDayStrip(
   });
 }
 
+/** Trailing window for adherence, the missed badge and the day strip. */
+export const HABIT_WINDOW_DAYS = 30;
+/** Hard bound on the streak walk — an old anchor must not walk forever. */
+export const STREAK_LOOKBACK_DAYS = 366;
+
+/** How a recurring task is going: the three numbers every habit surface reads. */
+export interface HabitStats {
+  /** Days in the window the rule asked for that are already past, or done. */
+  scheduled: number;
+  done: number;
+  missed: number;
+  /** done / scheduled, or null when nothing was owed in the window. */
+  adherence: number | null;
+  /** Consecutive scheduled days done, walking back from today. */
+  streak: number;
+}
+
+/**
+ * Streak, adherence and recent misses for one recurring task, derived from the
+ * completion log and the rule — no schema, no query of its own.
+ *
+ * `null` when there is no rule or no due date to anchor it: a repeat with no
+ * anchor schedules nothing, so every number here would be undefined rather than
+ * zero. Same rule `occurrencesFor` applies to the calendar.
+ *
+ * Counting rules, all deliberate:
+ * - **Pending days are not misses.** A scheduled day is only missed once it is
+ *   over, so today never drags adherence down and never ends a streak.
+ * - **Off-schedule completions count in neither direction.** They satisfied
+ *   nothing the rule asked for; counting them would let a Mon/Wed habit score
+ *   300%, or hold a streak on days it was never owed. The strip still shows
+ *   them (`done-off-schedule`) — this is about arithmetic, not visibility.
+ * - **Unscheduled days are skipped by the streak walk**, so a Mon/Wed habit
+ *   does not lose its streak every Tuesday.
+ */
+export function habitStats(
+  rule: RecurringRule | undefined,
+  anchorDueDate: string | undefined,
+  createdAt: string,
+  completedDates: ReadonlySet<string>,
+  today: string,
+): HabitStats | null {
+  if (rule === undefined || anchorDueDate === undefined) return null;
+
+  // The window counts are exactly the strip's own grading, so the numbers can
+  // never disagree with the squares above them.
+  let done = 0;
+  let missed = 0;
+  for (const cell of buildDayStrip(
+    rule,
+    anchorDueDate,
+    createdAt,
+    completedDates,
+    HABIT_WINDOW_DAYS,
+    today,
+  )) {
+    if (cell.state === "done") done += 1;
+    else if (cell.state === "missed") missed += 1;
+  }
+  const scheduled = done + missed;
+
+  const createdDay = format(parseISO(createdAt), "yyyy-MM-dd");
+  // A scheduled-but-undone today would end the walk on its first step; a streak
+  // that expires at 00:01 and returns when you tick the box reads as a bug.
+  let cursor = parseISO(today);
+  if (!completedDates.has(today)) cursor = subDays(cursor, 1);
+
+  // ponytail: linear backward walk, bounded at a year and at the creation day.
+  // Memoized at the call sites; precompute in the store only if a long list
+  // measurably drags.
+  let streak = 0;
+  for (let step = 0; step < STREAK_LOOKBACK_DAYS; step += 1) {
+    const day = format(cursor, "yyyy-MM-dd");
+    if (day < createdDay) break;
+    if (isOccurrenceOn(rule, day, anchorDueDate)) {
+      if (!completedDates.has(day)) break;
+      streak += 1;
+    }
+    cursor = subDays(cursor, 1);
+  }
+
+  return {
+    scheduled,
+    done,
+    missed,
+    adherence: scheduled === 0 ? null : done / scheduled,
+    streak,
+  };
+}
+
 /** One calendar cell's entry for a task: which day, and how that day went. */
 export interface Occurrence {
   taskId: string;

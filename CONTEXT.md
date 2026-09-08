@@ -77,6 +77,19 @@ state and pushes it in.
   via `--heat-0…4` tokens, so a square keeps its colour as history grows. The
   dashboard **streak** reads the same log — the old `completedAt` scan counted
   zero days for recurring tasks.
+- **Habit stats** (`habitStats` in `src/lib/completions.ts`) — streak, adherence
+  and recent misses for one recurring task, derived from the completion log and
+  the rule; **no schema, no query of its own**. Window is
+  `HABIT_WINDOW_DAYS` = 30. *Scheduled* = `isOccurrenceOn` and on/after the
+  task's creation day; *missed* = scheduled, past, no row; *pending* days count
+  as neither (a streak must not expire at 00:01). An **off-schedule completion**
+  counts in neither side of adherence — it satisfied nothing the rule asked for
+  — though the strip still shows it. The streak walk **skips** unscheduled days
+  rather than breaking on them (a Mon/Wed habit keeps its streak over Tuesday)
+  and is bounded at `STREAK_LOOKBACK_DAYS` = 366. A repeat with **no due date**
+  has no anchor, so stats are `null`, not zero. Read by the detail strip, the
+  `N missed` row badge and `/habits`. Spec:
+  `docs/superpowers/specs/2026-09-08-habit-depth.md`.
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
 - **Command palette** (`CommandPalette.tsx`) — Ctrl+K; tasks (matched on title,
   tags and notes) plus New task and view navigation.
@@ -143,8 +156,11 @@ work happened; a row means done, absence means not done) and
 catches up to today at startup / midnight).
 
 ## Roadmap
-**`docs/ROADMAP.md`** — now a completed record of the post-v0.2 pass, kept until
-a new roadmap replaces it. This file no longer carries a roadmap section.
+**`docs/ROADMAP.md`** — habit depth (post-v0.6): adherence, streaks and a missed
+count per recurring task, derived from the completion log with no migration.
+Spec `docs/superpowers/specs/2026-09-08-habit-depth.md`, plan
+`docs/superpowers/plans/2026-09-08-habit-depth.md`. The post-v0.2 pass it
+replaces is kept as a record at the bottom of the same file.
 
 ## Standing non-goals
 - **Cloud sync / multi-device** — contradicts local-first single-user; a
@@ -160,7 +176,12 @@ a new roadmap replaces it. This file no longer carries a roadmap section.
   gives per-day history without unbounded row growth or rewriting every query.
 - **Treating recurrence as an obligation ledger** — a missed occurrence now
   advances the due date (ADR-0004), so the app shows the next cadence date, not
-  a count of what was skipped. Misses live in the completion log and the history
-  strip. An "N missed" badge is the upgrade path, not shipped.
-- **Adherence metrics** ("4 of 7 scheduled days") — derivable via
-  `isOccurrenceOn`, not shipped. The heatmap is an *activity* view by design.
+  a count of what was skipped. Misses live in the completion log, the history
+  strip and — since v0.7.0 — the `N missed` badge on the task row.
+- **Retroactive check-off** ("I did it yesterday") — the natural ask now that
+  misses are visible, and deliberately not shipped: it is a write path that must
+  not roll `dueDate` or re-anchor a reminder the way today's toggle does. That is
+  a decision (probably an ADR) before it is a feature. Upgrade path: a click on a
+  `missed` strip cell → `logCompletion` with that `occurrenceDate`, no snapshot.
+- **Per-habit targets** ("3× a week") — a second schedule competing with the
+  rule. The rule is the schedule.

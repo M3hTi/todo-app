@@ -33,6 +33,7 @@ import { TaskListPage, type TaskGroup } from "@/components/tasks/TaskListPage";
 import { isTaskOverdue } from "@/components/tasks/TaskCard";
 import { DashboardView } from "@/features/dashboard/DashboardView";
 import { CalendarView } from "@/features/calendar/CalendarView";
+import { HabitsView } from "@/features/habits/HabitsView";
 import { SettingsView } from "@/features/settings/SettingsView";
 
 const isOpen = (task: Task): boolean =>
@@ -323,6 +324,7 @@ function App() {
             <Route path="/today" element={<TodayView />} />
             <Route path="/upcoming" element={<UpcomingView />} />
             <Route path="/calendar" element={<CalendarView />} />
+            <Route path="/habits" element={<HabitsView />} />
             <Route path="/completed" element={<CompletedView />} />
             <Route path="/overdue" element={<OverdueView />} />
             <Route path="/category/:id" element={<CategoryTasksView />} />

@@ -1,14 +1,21 @@
-// Last-14-days history for a recurring task. Answers the question the checkbox
-// cannot: which days did this actually get done, and which were genuinely missed
-// versus never scheduled in the first place.
+// Recent history for a recurring task. Answers the question the checkbox
+// cannot: which days did this actually get done, which were genuinely missed
+// versus never scheduled in the first place — and, underneath, how the habit is
+// going overall (streak, adherence). Both come from one read of the completion
+// log; the numbers are the strip's own grading, counted.
 import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import type { Task } from "@/types";
-import { buildDayStrip, type DayCell, type DayState } from "@/lib/completions";
+import {
+  buildDayStrip,
+  habitStats,
+  HABIT_WINDOW_DAYS,
+  type DayCell,
+  type DayState,
+  type HabitStats,
+} from "@/lib/completions";
 import { getCompletionDatesForTask } from "@/lib/queries/completions";
 import { useCompletionStore } from "@/store/useCompletionStore";
-
-const DAYS = 14;
 
 const STATE_STYLE: Record<DayState, string> = {
   done: "bg-[var(--heat-4)]",
@@ -27,10 +34,26 @@ const STATE_TEXT: Record<DayState, string> = {
   "not-scheduled": "not scheduled",
 };
 
+interface StripData {
+  cells: DayCell[];
+  stats: HabitStats | null;
+}
+
+/** "🔥 5-day streak · 12 of 14 scheduled days · 86%", minus whatever doesn't apply. */
+function statsLine(stats: HabitStats): string {
+  const parts: string[] = [];
+  if (stats.streak > 0) parts.push(`🔥 ${stats.streak}-day streak`);
+  if (stats.scheduled > 0) {
+    parts.push(`${stats.done} of ${stats.scheduled} scheduled days`);
+    if (stats.adherence !== null) parts.push(`${Math.round(stats.adherence * 100)}%`);
+  }
+  return parts.join(" · ");
+}
+
 export function HistoryStrip({ task }: { task: Task }) {
   const dayKey = useCompletionStore((state) => state.dayKey);
   const todayDone = useCompletionStore((state) => state.todayDone);
-  const [cells, setCells] = useState<DayCell[] | null>(null);
+  const [data, setData] = useState<StripData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,20 +61,30 @@ export function HistoryStrip({ task }: { task: Task }) {
       try {
         const dates = await getCompletionDatesForTask(task.id, "1970-01-01");
         if (cancelled) return;
-        setCells(
-          buildDayStrip(
+        const completed = new Set(dates);
+        // Set together, so the squares and the numbers can never describe
+        // different loads.
+        setData({
+          cells: buildDayStrip(
             task.recurringRule,
             task.dueDate,
             task.createdAt,
-            new Set(dates),
-            DAYS,
+            completed,
+            HABIT_WINDOW_DAYS,
             dayKey,
           ),
-        );
+          stats: habitStats(
+            task.recurringRule,
+            task.dueDate,
+            task.createdAt,
+            completed,
+            dayKey,
+          ),
+        });
       } catch {
         // History is additive — a read failure hides the strip, it doesn't
         // interrupt working with the task.
-        if (!cancelled) setCells(null);
+        if (!cancelled) setData(null);
       }
     })();
     return () => {
@@ -60,25 +93,21 @@ export function HistoryStrip({ task }: { task: Task }) {
     // todayDone re-runs this after a toggle, so the strip tracks the checkbox.
   }, [task.id, task.recurringRule, task.dueDate, task.createdAt, dayKey, todayDone]);
 
-  if (!cells) return null;
+  if (!data) return null;
 
-  const doneCount = cells.filter(
-    (cell) => cell.state === "done" || cell.state === "done-off-schedule",
-  ).length;
-  const missedCount = cells.filter((cell) => cell.state === "missed").length;
+  const line = data.stats ? statsLine(data.stats) : "";
 
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <p className="text-[13px] font-semibold tracking-[.04em] text-[var(--text-4)]">
-          LAST {DAYS} DAYS
-        </p>
-        <span className="text-[11.5px] text-[var(--text-3)]">
-          {doneCount} done{missedCount > 0 ? ` · ${missedCount} missed` : ""}
-        </span>
-      </div>
-      <div className="flex gap-[3px]" role="list" aria-label={`Completion history, last ${DAYS} days`}>
-        {cells.map((cell) => {
+      <p className="mb-2 text-[13px] font-semibold tracking-[.04em] text-[var(--text-4)]">
+        LAST {HABIT_WINDOW_DAYS} DAYS
+      </p>
+      <div
+        className="flex gap-[3px]"
+        role="list"
+        aria-label={`Completion history, last ${HABIT_WINDOW_DAYS} days`}
+      >
+        {data.cells.map((cell) => {
           const label = `${format(parseISO(cell.date), "EEE MMM d")} — ${STATE_TEXT[cell.state]}`;
           return (
             <div
@@ -91,6 +120,7 @@ export function HistoryStrip({ task }: { task: Task }) {
           );
         })}
       </div>
+      {line && <p className="mt-2 text-[11.5px] text-[var(--text-3)]">{line}</p>}
     </div>
   );
 }

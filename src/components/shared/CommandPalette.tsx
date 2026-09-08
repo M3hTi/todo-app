@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ListTodo,
   Plus,
+  Repeat,
   Settings,
   Sun,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const ROUTES = [
   { path: "/today", label: "Go to Today", icon: Sun },
   { path: "/upcoming", label: "Go to Upcoming", icon: CalendarDays },
   { path: "/all", label: "Go to All Tasks", icon: ListTodo },
+  { path: "/habits", label: "Go to Habits", icon: Repeat },
   { path: "/overdue", label: "Go to Overdue", icon: AlertCircle },
   { path: "/completed", label: "Go to Completed", icon: CheckCircle2 },
   { path: "/settings", label: "Go to Settings", icon: Settings },
