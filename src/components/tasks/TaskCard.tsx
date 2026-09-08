@@ -1,14 +1,18 @@
+import { useMemo } from "react";
 import { format, isBefore, isToday, parseISO, startOfDay } from "date-fns";
 import type { Task } from "@/types";
 import { useCategoryStore } from "@/store/useCategoryStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useCompletionStore } from "@/store/useCompletionStore";
-import { isDoneToday } from "@/lib/completions";
+import { habitStats, HABIT_WINDOW_DAYS, isDoneToday } from "@/lib/completions";
 import { toggleTaskComplete } from "@/hooks/useTasks";
 import { categoryDotColor, PRIORITY_PILL_CLASSES } from "@/lib/taskVisuals";
 import { TaskCheckbox } from "@/components/shared/TaskCheckbox";
 import { TaskContextMenu } from "@/components/tasks/TaskContextMenu";
 import { cn } from "@/lib/utils";
+
+/** Shared empty set, so a task with no completions doesn't allocate per render. */
+const NO_DAYS: ReadonlySet<string> = new Set<string>();
 
 export function isTaskOverdue(task: Task): boolean {
   if (!task.dueDate) return false;
@@ -36,6 +40,26 @@ export function TaskCard({ task, displayDate }: TaskCardProps) {
   // Completion state, not status: a recurring task done today reads as 'Not
   // Started' (it already rolled forward to tomorrow) but must render as checked.
   const completed = useCompletionStore((state) => isDoneToday(task, state.todayDone));
+
+  // Recent misses. Post-ADR-0004 a habit skipped all week has already caught its
+  // due date up to today, so the row would otherwise read as perfectly healthy —
+  // this badge is the only place the list admits the miss.
+  // ponytail: derived per row from the store's window; memoized on the inputs.
+  // Precompute in the store only if a long list measurably drags.
+  const completionDays = useCompletionStore((state) => state.completionsByTask.get(task.id));
+  const dayKey = useCompletionStore((state) => state.dayKey);
+  const missed = useMemo(
+    () =>
+      habitStats(
+        task.recurringRule,
+        task.dueDate,
+        task.createdAt,
+        completionDays ?? NO_DAYS,
+        dayKey,
+      )?.missed ?? 0,
+    [task.recurringRule, task.dueDate, task.createdAt, completionDays, dayKey],
+  );
+
   const shownDate = displayDate ?? task.dueDate;
   const dueToday = shownDate !== undefined && isToday(parseISO(shownDate));
   const subtaskTotal = task.subtasks.length;
@@ -132,6 +156,15 @@ export function TaskCard({ task, displayDate }: TaskCardProps) {
               )}
             >
               {dueLabel}
+            </span>
+          )}
+
+          {missed > 0 && (
+            <span
+              className="shrink-0 whitespace-nowrap rounded-[20px] bg-[var(--urgent-bg)] px-2 py-[3px] text-[11px] font-semibold text-[var(--urgent-text)]"
+              aria-label={`${missed} missed ${missed === 1 ? "day" : "days"} in the last ${HABIT_WINDOW_DAYS}`}
+            >
+              {missed} missed
             </span>
           )}
 

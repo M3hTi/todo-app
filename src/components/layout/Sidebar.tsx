@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   LayoutDashboard,
   ListTodo,
+  Repeat,
   Settings,
   Sun,
   Tag as TagIcon,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { to: "/today", label: "Today", icon: Sun },
   { to: "/upcoming", label: "Upcoming", icon: CalendarClock },
   { to: "/calendar", label: "Calendar", icon: Calendar },
+  { to: "/habits", label: "Habits", icon: Repeat },
   { to: "/completed", label: "Completed", icon: CheckCircle2 },
   { to: "/overdue", label: "Overdue", icon: AlertCircle },
 ] as const;

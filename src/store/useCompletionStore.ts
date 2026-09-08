@@ -6,10 +6,12 @@ import {
   deleteCompletion,
   getCompletion,
   getCompletionsInRange,
+  getTaskCompletionsInRange,
   getTaskIdsCompletedOn,
   logCompletion,
   type NewCompletion,
 } from "@/lib/queries/completions";
+import { HABIT_WINDOW_DAYS } from "@/lib/completions";
 
 /** Weeks the heatmap renders, and therefore how far back the store loads. */
 export const HEATMAP_WEEKS = 53;
@@ -19,6 +21,12 @@ interface CompletionStoreState {
   completionsByDate: Record<string, number>;
   /** Task ids completed on `dayKey` — what the checkbox reads. */
   todayDone: Set<string>;
+  /**
+   * task id → the days it was completed, over the trailing habit window.
+   * Feeds the per-row missed badge: every task row needs its own history, and
+   * N rows firing N queries is exactly what this map exists to avoid.
+   */
+  completionsByTask: Map<string, Set<string>>;
   /**
    * The local date the loaded state describes. The app is built to run for days
    * (close-to-tray + autostart), so "today" cannot be resolved once at boot —
@@ -32,23 +40,49 @@ interface CompletionStoreState {
   unmarkDone: (taskId: string, occurrenceDate: string) => Promise<Completion | null>;
 }
 
+/** Adds or removes one (task, day) from the per-task map, returning a new Map. */
+function withCompletionDay(
+  byTask: Map<string, Set<string>>,
+  taskId: string,
+  date: string,
+  present: boolean,
+): Map<string, Set<string>> {
+  const next = new Map(byTask);
+  const days = new Set(next.get(taskId));
+  if (present) days.add(date);
+  else days.delete(date);
+  if (days.size > 0) next.set(taskId, days);
+  else next.delete(taskId);
+  return next;
+}
+
 export const useCompletionStore = create<CompletionStoreState>((set) => ({
   completionsByDate: {},
   todayDone: new Set(),
+  completionsByTask: new Map(),
   dayKey: format(new Date(), "yyyy-MM-dd"),
 
   load: async () => {
     const now = new Date();
     const today = format(now, "yyyy-MM-dd");
     const from = format(subDays(now, HEATMAP_WEEKS * 7), "yyyy-MM-dd");
+    const windowStart = format(subDays(now, HABIT_WINDOW_DAYS - 1), "yyyy-MM-dd");
     try {
-      const [counts, todayIds] = await Promise.all([
+      const [counts, todayIds, taskDays] = await Promise.all([
         getCompletionsInRange(from, today),
         getTaskIdsCompletedOn(today),
+        getTaskCompletionsInRange(windowStart, today),
       ]);
+      const byTask = new Map<string, Set<string>>();
+      for (const row of taskDays) {
+        const days = byTask.get(row.taskId);
+        if (days) days.add(row.date);
+        else byTask.set(row.taskId, new Set([row.date]));
+      }
       set({
         completionsByDate: Object.fromEntries(counts.map((row) => [row.date, row.count])),
         todayDone: new Set(todayIds),
+        completionsByTask: byTask,
         dayKey: today,
       });
     } catch {
@@ -69,6 +103,13 @@ export const useCompletionStore = create<CompletionStoreState>((set) => ({
         input.occurrenceDate === state.dayKey
           ? new Set(state.todayDone).add(input.taskId)
           : state.todayDone,
+      // A new Map, not a mutated one — Zustand compares by reference.
+      completionsByTask: withCompletionDay(
+        state.completionsByTask,
+        input.taskId,
+        input.occurrenceDate,
+        true,
+      ),
     }));
   },
 
@@ -84,7 +125,16 @@ export const useCompletionStore = create<CompletionStoreState>((set) => ({
 
       const todayDone = new Set(state.todayDone);
       if (occurrenceDate === state.dayKey) todayDone.delete(taskId);
-      return { completionsByDate: byDate, todayDone };
+      return {
+        completionsByDate: byDate,
+        todayDone,
+        completionsByTask: withCompletionDay(
+          state.completionsByTask,
+          taskId,
+          occurrenceDate,
+          false,
+        ),
+      };
     });
     return existing;
   },

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { format, parseISO, subDays } from "date-fns";
 import type { Completion, Reminder, Task } from "@/types";
 
 const toastError = vi.fn();
@@ -560,5 +561,103 @@ describe("forward projection is capped at the next occurrence", () => {
     // The two views used to contradict each other: the calendar showed nothing
     // where the strip said "missed".
     expect(states(occurrencesFor(daily, days, done, today))).toEqual(strip);
+  });
+});
+
+describe("habitStats", () => {
+  const daily = { frequency: "Daily" as const, interval: 1 };
+  const monWed = { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3] };
+  const OLD = "2020-01-01T09:00:00.000Z";
+  const TODAY = "2026-08-26"; // a Wednesday
+
+  /** The `count` most recent days, today first. */
+  const daysBack = (count: number, from = TODAY): string[] =>
+    Array.from({ length: count }, (_, index) =>
+      format(subDays(parseISO(from), index), "yyyy-MM-dd"),
+    );
+
+  it("counts a clean daily habit as fully adherent", async () => {
+    const { habitStats, HABIT_WINDOW_DAYS } = await import("./completions");
+    const stats = habitStats(daily, TODAY, OLD, new Set(daysBack(HABIT_WINDOW_DAYS)), TODAY);
+    expect(stats).toMatchObject({
+      done: HABIT_WINDOW_DAYS,
+      missed: 0,
+      scheduled: HABIT_WINDOW_DAYS,
+      adherence: 1,
+      streak: HABIT_WINDOW_DAYS,
+    });
+  });
+
+  it("ends the streak at the first missed scheduled day", async () => {
+    const { habitStats } = await import("./completions");
+    // Done today and yesterday; the day before that was skipped.
+    const stats = habitStats(daily, TODAY, OLD, new Set(daysBack(2)), TODAY);
+    expect(stats?.streak).toBe(2);
+    expect(stats?.done).toBe(2);
+    expect(stats?.missed).toBeGreaterThan(0);
+  });
+
+  it("does not break the streak on a today that is still pending", async () => {
+    const { habitStats } = await import("./completions");
+    // Five days done, ending yesterday; today is scheduled and untouched.
+    const done = new Set(daysBack(6).slice(1));
+    const stats = habitStats(daily, TODAY, OLD, done, TODAY);
+    expect(stats?.streak).toBe(5);
+    // ...and a pending today is not a miss either.
+    expect(stats?.done).toBe(5);
+  });
+
+  it("skips unscheduled days rather than breaking on them", async () => {
+    const { habitStats } = await import("./completions");
+    // Mon+Wed rule: Monday and today (Wednesday) done, Tuesday never owed.
+    const stats = habitStats(monWed, TODAY, OLD, new Set(["2026-08-24", TODAY]), TODAY);
+    expect(stats?.streak).toBe(2);
+  });
+
+  it("counts an off-schedule completion in neither direction", async () => {
+    const { habitStats } = await import("./completions");
+    // Mon+Wed rule, but the work happened on the Tuesday.
+    const stats = habitStats(monWed, TODAY, OLD, new Set(["2026-08-25"]), TODAY);
+    expect(stats?.done).toBe(0); // it satisfied nothing the rule asked for
+    expect(stats?.streak).toBe(0); // and it holds no streak on a day never owed
+  });
+
+  it("never counts days from before the task existed", async () => {
+    const { habitStats } = await import("./completions");
+    const stats = habitStats(
+      daily,
+      TODAY,
+      "2026-08-24T09:00:00.000Z", // created three days ago
+      new Set(daysBack(3)),
+      TODAY,
+    );
+    expect(stats).toMatchObject({ done: 3, missed: 0, scheduled: 3, adherence: 1, streak: 3 });
+  });
+
+  it("owes nothing after the rule's endDate", async () => {
+    const { habitStats } = await import("./completions");
+    const stats = habitStats(
+      { ...daily, endDate: "2026-08-24" },
+      TODAY,
+      "2026-08-22T09:00:00.000Z",
+      new Set(["2026-08-23", "2026-08-24"]),
+      TODAY,
+    );
+    // Only the 22nd, 23rd and 24th were ever scheduled; the 25th and 26th are
+    // past the endDate and are not misses.
+    expect(stats).toMatchObject({ done: 2, missed: 1, scheduled: 3, streak: 2 });
+  });
+
+  it("returns null for a repeat with no due date to anchor it", async () => {
+    const { habitStats } = await import("./completions");
+    expect(habitStats(daily, undefined, OLD, new Set([TODAY]), TODAY)).toBeNull();
+    expect(habitStats(undefined, TODAY, OLD, new Set([TODAY]), TODAY)).toBeNull();
+  });
+
+  it("reports null adherence when the window owed nothing", async () => {
+    const { habitStats } = await import("./completions");
+    // Created today, scheduled today, not done yet: nothing is owed *yet*.
+    const stats = habitStats(daily, TODAY, "2026-08-26T09:00:00.000Z", new Set(), TODAY);
+    expect(stats).toMatchObject({ scheduled: 0, adherence: null, streak: 0 });
   });
 });
