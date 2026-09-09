@@ -169,35 +169,34 @@ export function habitStats(
   };
 }
 
-/** One calendar cell's entry for a task: which day, and how that day went. */
+/** One calendar cell's entry for a task: which day, and where it stands. */
 export interface Occurrence {
   taskId: string;
   date: string;
-  state: "done" | "missed" | "pending";
+  state: "done" | "pending";
 }
 
 /**
- * The task's occurrences among `dates`, so a recurring task shows up on every
- * day the rule asked for — not just the single `dueDate` the record happens to
- * be parked on. Same reasoning as buildDayStrip: the rule projects occurrences,
- * the completion log grades them, and days before the task existed are skipped
- * so a habit made yesterday doesn't paint a month of failures.
+ * The task's occurrences among `dates` — what the calendar is on the hook for.
  *
- * A completion on an unscheduled day still counts as `done` here (the calendar
- * shows the day work happened); the strip's finer `done-off-schedule` shading
- * is not worth a fifth chip colour.
+ * **Only today and the next projected occurrence.** The calendar answers "what
+ * am I on the hook for"; how a habit has been *going* is the 30-day strip's and
+ * the Habits page's job, and they do it per-task with the numbers attached. When
+ * the past was graded here too, one daily habit produced ten chips in a month
+ * and — since a day cell renders only MAX_CHIPS — pushed the one-off tasks a
+ * calendar exists for out of the cells entirely.
  *
- * Only the *next* occurrence is projected past today. A daily rule genuinely
- * does recur every day, so grading the future honestly filled every cell of
- * every month ahead — true, and unreadable. The past is history and keeps its
- * full grading; the future is a forecast, and one step of it is enough. What
- * comes after that is already the Upcoming list's job.
+ * So a recurring task contributes at most two chips: today's occurrence (shown
+ * whether or not it is done, so the day reads honestly) and the single next one,
+ * taken from `upcomingDueDate` so the grid and Upcoming cannot disagree about
+ * what comes next. `upcomingDueDate` is strictly after today, so the two never
+ * collide.
  *
- * A repeat with no due date has no anchor at all, so nothing projects and only
- * its real completions land on the grid — a dateless rule is an ongoing habit,
- * and nothing is owed on any particular day.
+ * Days before the task existed are skipped, and a repeat with no due date has no
+ * anchor, so it projects nothing — a dateless rule is an ongoing habit, and
+ * nothing is owed on any particular day.
  *
- * `endDate` is deliberately not consulted here beyond the cutoff isOccurrenceOn
+ * `endDate` is deliberately not consulted beyond the cutoff isOccurrenceOn
  * already applies: `Until` says when a habit stops, not how it should be drawn.
  */
 export function occurrencesFor(
@@ -216,23 +215,20 @@ export function occurrencesFor(
   }
 
   const createdDay = format(parseISO(task.createdAt), "yyyy-MM-dd");
-  // The one occurrence allowed past today — the same date Upcoming lists, so the
-  // two views cannot disagree about what comes next. undefined when the task has
-  // no due date to project from, or the rule has run past its endDate.
+  // The one occurrence projected past today — the same date Upcoming lists, so
+  // the two views cannot disagree about what comes next. undefined when the task
+  // has no due date to project from, or the rule has run past its endDate.
   const nextUp = upcomingDueDate(rule, task.dueDate, today);
   const result: Occurrence[] = [];
   for (const date of dates) {
-    if (date < createdDay) continue;
+    // The past belongs to the history strip, not to the grid.
+    if (date < createdDay || date < today) continue;
+    if (date !== today && date !== nextUp) continue;
     const done = completedDates.has(date);
-    // A day already worked is history and always shown, however far ahead the
-    // grid is scrolled; an unworked future day is a forecast, capped at one.
-    if (!done && date > today && date !== nextUp) continue;
-    if (!done && !isOccurrenceOn(rule, date, task.dueDate)) continue;
-    result.push({
-      taskId: task.id,
-      date,
-      state: done ? "done" : date < today ? "missed" : "pending",
-    });
+    // nextUp is an occurrence by construction; today has to be checked, unless
+    // it was worked anyway — real work on an unscheduled day still shows.
+    if (date === today && !done && !isOccurrenceOn(rule, date, task.dueDate)) continue;
+    result.push({ taskId: task.id, date, state: done ? "done" : "pending" });
   }
   return result;
 }

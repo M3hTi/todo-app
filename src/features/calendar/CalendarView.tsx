@@ -30,13 +30,11 @@ const MAX_CHIPS = 2;
 
 const CHIP_STATE_CLASSES: Record<Occurrence["state"], string> = {
   done: "bg-[var(--cal-event-bg)] text-[var(--cal-event-text)] line-through opacity-60",
-  missed: "bg-[var(--urgent-bg)] text-[var(--urgent-text)]",
   pending: "bg-[var(--cal-event-bg)] text-[var(--cal-event-text)]",
 };
 
 const CHIP_STATE_TEXT: Record<Occurrence["state"], string> = {
   done: "completed",
-  missed: "missed",
   pending: "scheduled",
 };
 
@@ -68,7 +66,7 @@ export function CalendarView() {
 
   // Which task was completed on which visible day. A recurring task keeps no
   // per-day state on the record — it rolls forward — so the completion log is
-  // the only thing that can tell a done day from a missed one.
+  // the only thing that can say whether today's occurrence is already done.
   const [completedByTask, setCompletedByTask] = useState(() => new Map<string, Set<string>>());
   useEffect(() => {
     let cancelled = false;

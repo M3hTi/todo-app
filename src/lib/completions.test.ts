@@ -320,7 +320,7 @@ describe("occurrencesFor", () => {
   const states = (list: Array<{ date: string; state: string }>) =>
     Object.fromEntries(list.map((o) => [o.date, o.state]));
 
-  it("grades every past occurrence of a recurring task, not just its due date", async () => {
+  it("shows today and the next occurrence, and nothing behind them", async () => {
     const { occurrencesFor } = await import("./completions");
     const task = {
       ...base,
@@ -328,27 +328,63 @@ describe("occurrencesFor", () => {
       recurringRule: { frequency: "Daily" as const, interval: 1 },
     };
     expect(states(occurrencesFor(task, week, new Set(["2026-08-25"]), "2026-08-26"))).toEqual({
-      "2026-08-24": "missed",
-      "2026-08-25": "done",
-      "2026-08-26": "pending",
-      "2026-08-27": "pending", // the next occurrence…
-      // …and no "2026-08-28": the forecast stops after one step.
+      "2026-08-26": "pending", // today is owed
+      "2026-08-27": "pending", // …and the one step ahead
+      // Aug 24 was missed and Aug 25 was done: both real, both the strip's job.
+      // Painting them here buried the one-off tasks the calendar exists for.
     });
   });
 
-  it("skips days the rule never asked for, and days before the task existed", async () => {
+  it("puts no chip on a today the rule never asked for", async () => {
     const { occurrencesFor } = await import("./completions");
     const task = {
       ...base,
       createdAt: "2026-08-25T09:00:00.000Z",
       dueDate: "2026-08-28",
-      // Mon/Wed/Fri: Aug 24 Mon, 26 Wed, 28 Fri.
+      // Mon/Wed/Fri: Aug 24 Mon, 26 Wed, 28 Fri. Today is Thursday the 27th.
       recurringRule: { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3, 5] },
     };
     expect(states(occurrencesFor(task, week, new Set(), "2026-08-27"))).toEqual({
-      "2026-08-26": "missed", // scheduled, past, no log row
+      "2026-08-28": "pending", // only the next occurrence
+    });
+  });
+
+  it("shows today when the work happened on an unscheduled today", async () => {
+    const { occurrencesFor } = await import("./completions");
+    const task = {
+      ...base,
+      dueDate: "2026-08-28",
+      // Mon/Wed/Fri; today is Thursday, which the rule never asked for.
+      recurringRule: { frequency: "Weekly" as const, interval: 1, daysOfWeek: [1, 3, 5] },
+    };
+    const done = new Set(["2026-08-27"]);
+    expect(states(occurrencesFor(task, week, done, "2026-08-27"))).toEqual({
+      "2026-08-27": "done", // real work today still shows on today
       "2026-08-28": "pending",
     });
+  });
+
+  it("stops a daily habit from crowding one-off tasks out of the grid", async () => {
+    const { occurrencesFor } = await import("./completions");
+    // The reported problem: a day cell renders only MAX_CHIPS, so a daily habit
+    // graded across the whole month pushed the one-offs out of their own cells.
+    const habit = {
+      ...base,
+      dueDate: "2026-08-27",
+      recurringRule: { frequency: "Daily" as const, interval: 1 },
+    };
+    const oneOff = { ...base, id: "t2", dueDate: "2026-08-24" };
+    const today = "2026-08-26";
+
+    const habitDays = occurrencesFor(habit, week, new Set(["2026-08-25"]), today).map(
+      (o) => o.date,
+    );
+    const oneOffDays = occurrencesFor(oneOff, week, new Set(), today).map((o) => o.date);
+
+    // The habit claims two cells, not five, and none of them is the one-off's.
+    expect(habitDays).toEqual(["2026-08-26", "2026-08-27"]);
+    expect(oneOffDays).toEqual(["2026-08-24"]);
+    expect(habitDays).not.toContain("2026-08-24");
   });
 
   it("leaves one-off tasks as a single chip on their due date", async () => {
@@ -381,20 +417,25 @@ describe("dateless recurring tasks — habit with no schedule anchor", () => {
     expect(occurrencesFor(task(frequency), week, new Set(), today)).toEqual([]);
   });
 
-  it.each(FREQUENCIES)("%s still shows the days it was actually done", async (frequency) => {
+  it.each(FREQUENCIES)("%s no longer paints the days it was done", async (frequency) => {
     const { occurrencesFor } = await import("./completions");
-    // The reported example: completed Sep 5 and Sep 6, nothing on Sep 7.
+    // Completed Sep 5 and Sep 6, both behind today: the strip's job now, not
+    // the grid's. A dateless habit owes no particular day, so it forecasts
+    // nothing either.
     const done = new Set(["2026-09-05", "2026-09-06"]);
-    expect(states(occurrencesFor(task(frequency), week, done, today))).toEqual({
-      "2026-09-05": "done",
-      "2026-09-06": "done",
+    expect(occurrencesFor(task(frequency), week, done, today)).toEqual([]);
+  });
+
+  it.each(FREQUENCIES)("%s still shows work done today", async (frequency) => {
+    const { occurrencesFor } = await import("./completions");
+    expect(states(occurrencesFor(task(frequency), week, new Set([today]), today))).toEqual({
+      [today]: "done",
     });
   });
 
-  it("never marks a past day missed, however long the gap", async () => {
+  it("puts nothing behind today, however long the gap", async () => {
     const { occurrencesFor } = await import("./completions");
-    const out = occurrencesFor(task("Daily"), week, new Set(["2026-09-04"]), today);
-    expect(out.map((o) => o.state)).toEqual(["done"]);
+    expect(occurrencesFor(task("Daily"), week, new Set(["2026-09-04"]), today)).toEqual([]);
   });
 
   it.each(FREQUENCIES)(
@@ -435,16 +476,13 @@ describe("dateless recurring tasks — habit with no schedule anchor", () => {
     });
   });
 
-  it("leaves anchored recurring tasks completely alone", async () => {
+  it("still shows an anchored recurring task on today and the next day it is owed", async () => {
     const { occurrencesFor } = await import("./completions");
     const anchored = {
       ...task("Daily"),
       dueDate: "2026-09-08",
     };
     expect(states(occurrencesFor(anchored, week, new Set(["2026-09-05"]), today))).toEqual({
-      "2026-09-04": "missed",
-      "2026-09-05": "done",
-      "2026-09-06": "missed",
       "2026-09-07": "pending",
       "2026-09-08": "pending",
     });
@@ -492,7 +530,7 @@ describe("completing a dateless habit does not give it a schedule", () => {
   });
 });
 
-describe("forward projection is capped at the next occurrence", () => {
+describe("the calendar shows today and one step ahead — never the past", () => {
   const OLD = "2020-01-01T09:00:00.000Z";
   const today = "2026-09-05";
   const daily = {
@@ -505,15 +543,13 @@ describe("forward projection is capped at the next occurrence", () => {
   const states = (list: Array<{ date: string; state: string }>) =>
     Object.fromEntries(list.map((o) => [o.date, o.state]));
 
-  it("grades the past in full but forecasts only one day ahead", async () => {
+  it("shows today and the next occurrence only", async () => {
     const { occurrencesFor } = await import("./completions");
     const week = ["2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07"];
     expect(states(occurrencesFor(daily, week, new Set(["2026-09-03"]), today))).toEqual({
-      "2026-09-03": "done",
-      "2026-09-04": "missed",
       "2026-09-05": "pending", // today is owed, not a forecast
       "2026-09-06": "pending", // the next occurrence
-      // 2026-09-07 and beyond: not painted.
+      // Sep 3 done and Sep 4 missed are history; Sep 7 is beyond one step.
     });
   });
 
@@ -526,10 +562,12 @@ describe("forward projection is capped at the next occurrence", () => {
     expect(occurrencesFor(daily, october, new Set(), today)).toEqual([]);
   });
 
-  it("still shows a completion however far ahead the grid is scrolled", async () => {
+  it("leaves a past month empty when the grid is scrolled back", async () => {
     const { occurrencesFor } = await import("./completions");
-    const out = occurrencesFor(daily, ["2026-10-20"], new Set(["2026-10-20"]), today);
-    expect(out).toEqual([{ taskId: "t1", date: "2026-10-20", state: "done" }]);
+    const august = Array.from({ length: 31 }, (_, i) => `2026-08-${String(i + 1).padStart(2, "0")}`);
+    // Every one of those days was either done or missed, and none is drawn: a
+    // month of history is what the strip and the Habits page are for.
+    expect(occurrencesFor(daily, august, new Set(["2026-08-11", "2026-08-12"]), today)).toEqual([]);
   });
 
   it("caps by the rule's own step, not by a fixed window", async () => {
@@ -548,19 +586,28 @@ describe("forward projection is capped at the next occurrence", () => {
     });
   });
 
-  it("agrees with the history strip on every past day", async () => {
+  it("hands the past to the strip, which still grades every day of it", async () => {
     const { occurrencesFor, buildDayStrip } = await import("./completions");
     const days = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"];
     const done = new Set(["2026-09-02", "2026-09-04"]);
+
+    // The grid draws nothing before today…
+    const past = days.filter((day) => day < today);
+    expect(occurrencesFor(daily, past, done, today)).toEqual([]);
+
+    // …while the strip keeps the full done/missed history for exactly those days.
     const strip = Object.fromEntries(
       buildDayStrip(daily.recurringRule, daily.dueDate, OLD, done, 5, today).map((c) => [
         c.date,
         c.state,
       ]),
     );
-    // The two views used to contradict each other: the calendar showed nothing
-    // where the strip said "missed".
-    expect(states(occurrencesFor(daily, days, done, today))).toEqual(strip);
+    expect(strip).toMatchObject({
+      "2026-09-01": "missed",
+      "2026-09-02": "done",
+      "2026-09-03": "missed",
+      "2026-09-04": "done",
+    });
   });
 });
 
