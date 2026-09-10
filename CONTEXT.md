@@ -47,6 +47,13 @@ state and pushes it in.
   ADR-0003. Carries `task_title` (snapshot — history survives deleting the task,
   `task_id` goes null) and `prev_due_date` / `prev_reminder_json` (undo snapshot).
   Written for one-off tasks too, so the heatmap has one source.
+  Since v0.8.0 a **past** day is correctable from the history strip
+  (`retroActionFor`): a `missed` cell writes a row for that `occurrence_date`, a
+  recorded cell deletes one, and neither touches `status`, `dueDate`, the
+  reminder or the roll-forward. A clear **ignores** the row's
+  `prev_due_date`/`prev_reminder_json` — the anchor has moved on, and
+  re-anchoring the live schedule to fix history is the worse bug. Today is never
+  editable there; the checkbox owns it, side effects included. See ADR-0005.
 - **Done today** — `isDoneToday(task, todayDone)` = one-off Completed **or** a log
   row for today. Drives checkbox state and the done visual **only**; filtering,
   sorting and the status badge still read `status`, because a recurring task
@@ -89,7 +96,9 @@ state and pushes it in.
   and is bounded at `STREAK_LOOKBACK_DAYS` = 366. A repeat with **no due date**
   has no anchor, so stats are `null`, not zero. Read by the detail strip, the
   `N missed` row badge and `/habits`. Spec:
-  `docs/superpowers/specs/2026-09-08-habit-depth.md`.
+  `docs/superpowers/specs/2026-09-08-habit-depth.md`. Correcting a past day
+  re-runs all of it: the strip's effect watches `completionsByTask`, so an
+  in-strip write reloads the squares and the numbers together.
 - **Close behavior** — `ask` / `tray` / `quit` setting; first-run dialog.
 - **Command palette** (`CommandPalette.tsx`) — Ctrl+K; tasks (matched on title,
   tags and notes) plus New task and view navigation.
@@ -105,7 +114,17 @@ state and pushes it in.
   release feed; offers download-install-restart. Silent on failure.
 
 ## Current state (2026-09)
-v0.6.1 is the current release — the calendar no longer paints a recurring
+v0.8.0 is the current release — the history strip's past days are **editable**.
+v0.7 made misses visible in three places and left no way to say "I did that one,
+I just forgot to tick it"; now a click on a red square records the day and a
+click on a recorded one clears it. The write is the completion log and nothing
+else (ADR-0005), so adherence, the streak, the `N missed` badge and the
+dashboard heatmap all follow from the same rows with no extra code — no
+migration, no new query, no new store field. v0.7.0 delivered habit depth:
+`habitStats` (streak / adherence / misses over a 30-day window), the stats line
+under the strip, the `N missed` row badge and the `/habits` page. v0.7.1 stopped
+the calendar painting past occurrences of recurring tasks.
+v0.6.1 — the calendar no longer paints a recurring
 task across every cell ahead of it. A daily rule genuinely does recur every
 day, so grading the whole future was accurate and unreadable; the past keeps
 its full done/missed history and exactly **one** occurrence is projected past
@@ -156,11 +175,15 @@ work happened; a row means done, absence means not done) and
 catches up to today at startup / midnight).
 
 ## Roadmap
-**`docs/ROADMAP.md`** — habit depth (post-v0.6): adherence, streaks and a missed
-count per recurring task, derived from the completion log with no migration.
-Spec `docs/superpowers/specs/2026-09-08-habit-depth.md`, plan
-`docs/superpowers/plans/2026-09-08-habit-depth.md`. The post-v0.2 pass it
-replaces is kept as a record at the bottom of the same file.
+**`docs/ROADMAP.md`** — correcting the record (post-v0.7): the history strip's
+past days become clickable, so a day you did but forgot to tick can be recorded
+(and a wrong one cleared) without touching `dueDate`, reminders or status.
+Decision `docs/adr/0005-retroactive-completion.md`, spec
+`docs/superpowers/specs/2026-09-10-retroactive-check-off.md`, plan
+`docs/superpowers/plans/2026-09-10-retroactive-check-off.md`. **Landed in
+v0.8.0**, which retired the retroactive-check-off non-goal. The habit-depth pass
+it replaces (all of it in v0.7.0) is kept as a record at the bottom of the same
+file.
 
 ## Standing non-goals
 - **Cloud sync / multi-device** — contradicts local-first single-user; a
@@ -178,10 +201,15 @@ replaces is kept as a record at the bottom of the same file.
   advances the due date (ADR-0004), so the app shows the next cadence date, not
   a count of what was skipped. Misses live in the completion log, the history
   strip and — since v0.7.0 — the `N missed` badge on the task row.
-- **Retroactive check-off** ("I did it yesterday") — the natural ask now that
-  misses are visible, and deliberately not shipped: it is a write path that must
-  not roll `dueDate` or re-anchor a reminder the way today's toggle does. That is
-  a decision (probably an ADR) before it is a feature. Upgrade path: a click on a
-  `missed` strip cell → `logCompletion` with that `occurrenceDate`, no snapshot.
+- **Logging work on days the rule never scheduled** — the strip can correct a
+  scheduled day or a recorded one (ADR-0005), but a past day the rule never asked
+  for stays read-only. "Log arbitrary work" is a different feature from
+  "correct the record".
+- **Bulk catch-up** ("mark the whole week") — same write as the per-day
+  correction, so it is a UI decision, not an architectural one. Not built until
+  someone hits a backlog the strip is too fiddly for.
+- **A `retroactive` flag on a completion row** — no reader. `completed_at` says
+  when it was typed, `occurrence_date` which day it credits; a column nothing
+  reads is a migration for nothing.
 - **Per-habit targets** ("3× a week") — a second schedule competing with the
   rule. The rule is the schedule.

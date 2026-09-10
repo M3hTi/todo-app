@@ -79,6 +79,26 @@ export function buildDayStrip(
   });
 }
 
+/** What clicking a day in the history strip does, or nothing. */
+export type RetroAction = "add" | "clear" | null;
+
+/**
+ * Whether a strip cell can be corrected, and how (ADR-0005).
+ *
+ * Only the past is editable, and only days the rule asked for or days already
+ * recorded. **Today is never editable here** — the checkbox owns today, and it
+ * also rolls a recurring record forward; two write paths for one day is how a
+ * reminder gets re-anchored by accident.
+ */
+export function retroActionFor(cell: DayCell, today: string): RetroAction {
+  if (cell.date >= today) return null;
+  if (cell.state === "missed") return "add";
+  if (cell.state === "done" || cell.state === "done-off-schedule") return "clear";
+  // not-scheduled: the rule never asked for this day. Recording work there is
+  // "log arbitrary work", a different feature.
+  return null;
+}
+
 /** Trailing window for adherence, the missed badge and the day strip. */
 export const HABIT_WINDOW_DAYS = 30;
 /** Hard bound on the streak walk — an old anchor must not walk forever. */
