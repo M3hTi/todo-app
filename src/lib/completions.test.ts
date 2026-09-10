@@ -708,3 +708,33 @@ describe("habitStats", () => {
     expect(stats).toMatchObject({ scheduled: 0, adherence: null, streak: 0 });
   });
 });
+
+describe("retroActionFor", () => {
+  const TODAY = "2026-09-10";
+  const cell = (date: string, state: string) =>
+    ({ date, state }) as { date: string; state: "done" | "done-off-schedule" | "missed" | "pending" | "not-scheduled" };
+
+  it("offers to record a missed day in the past", async () => {
+    const { retroActionFor } = await import("./completions");
+    expect(retroActionFor(cell("2026-09-08", "missed"), TODAY)).toBe("add");
+  });
+
+  it("offers to clear a recorded day, on or off schedule", async () => {
+    const { retroActionFor } = await import("./completions");
+    expect(retroActionFor(cell("2026-09-08", "done"), TODAY)).toBe("clear");
+    expect(retroActionFor(cell("2026-09-08", "done-off-schedule"), TODAY)).toBe("clear");
+  });
+
+  it("leaves today to the checkbox — it owns the roll-forward", async () => {
+    const { retroActionFor } = await import("./completions");
+    expect(retroActionFor(cell(TODAY, "missed"), TODAY)).toBeNull();
+    expect(retroActionFor(cell(TODAY, "done"), TODAY)).toBeNull();
+    expect(retroActionFor(cell(TODAY, "pending"), TODAY)).toBeNull();
+  });
+
+  it("edits neither the future nor days the rule never asked for", async () => {
+    const { retroActionFor } = await import("./completions");
+    expect(retroActionFor(cell("2026-09-11", "pending"), TODAY)).toBeNull();
+    expect(retroActionFor(cell("2026-09-08", "not-scheduled"), TODAY)).toBeNull();
+  });
+});
