@@ -58,6 +58,8 @@
 
     --checkbox-border: #cfcfda;
     --dashed-border: #d8d8e0;
+    --scrollbar-thumb: #d8d8e0;
+    --scrollbar-thumb-hover: #c2c2cc;
 
     --cat-personal: #10b981;
     --cat-shopping: #f59e0b;
@@ -131,6 +133,8 @@
 
     --checkbox-border: #494955;
     --dashed-border: #3a3a45;
+    --scrollbar-thumb: #33333e;
+    --scrollbar-thumb-hover: #494955;
 
     --cat-personal: #34d399;
     --cat-shopping: #fbbf24;
@@ -167,10 +171,7 @@
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d8d8e0 transparent;
-}
-.dark * {
-  scrollbar-color: #33333e transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 /* Chromium / WebView2 */
@@ -182,21 +183,159 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d8d8e0;
+  background: var(--scrollbar-thumb);
   border-radius: 8px;
   border: 3px solid transparent; /* slim 4px visual thumb */
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #c2c2cc;
-}
-.dark ::-webkit-scrollbar-thumb {
-  background: #33333e;
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #494955;
+  background: var(--scrollbar-thumb-hover);
 }
 ::-webkit-scrollbar-button,
 ::-webkit-scrollbar-corner {
   display: none;
+}
+
+/* ── Theme palettes ──────────────────────────────────────────────────────────
+   One pair of blocks per theme in src/lib/themes.ts. The light block is scoped
+   with :not(.dark) so it can override only what differs and still never leak
+   into dark mode. Anything left out falls through to the :root / .dark tokens
+   above. */
+@layer base {
+  /* Claude — warm ivory paper, terracotta accent. */
+  :root:not(.dark).theme-claude {
+    --surface: #f5f4ee;
+    --surface-sidebar: #faf9f5;
+    --surface-raised: #ffffff;
+    --surface-hover-row: #f5f4ee;
+    --surface-hover-nav: #eeece2;
+    --border: #e4e1d7;
+    --hairline: #edebe1;
+    --track: #e7e4d9;
+    --tag-bg: #f0eee6;
+    --notes-bg: #fbfaf6;
+
+    --text-1: #1f1e1d;
+    --text-2: #3d3d3a;
+    --text-3: #6b6a63;
+    --text-4: #97958c;
+    --text-4b: #8a887f;
+    --text-5: #b3b1a6;
+    --text-done: #97958c;
+
+    --accent: #d97757;
+    --accent-hover: #c2603f;
+    --accent-text: #b8552f;
+    --accent-tint: #f7eee8;
+    --accent-done-fill: #eab79f;
+    --ring-shadow: rgba(217, 119, 87, 0.12);
+    --button-shadow: rgba(217, 119, 87, 0.35);
+    --hero-from: #e0855f;
+    --hero-to: #d97757;
+    --hero-shadow: rgba(217, 119, 87, 0.28);
+
+    --heat-0: #e9e6db;
+    --heat-1: #f3d5c4;
+    --heat-2: #eeb193;
+    --heat-3: #e08e66;
+    --heat-4: #d97757;
+
+    --urgent-bg: #f8e3dd;
+    --urgent-text: #a83c22;
+    --high-bg: #f7ecd5;
+    --high-text: #8f6218;
+    --medium-bg: #e4e8f3;
+    --medium-text: #3a5a9b;
+    --completed-bg: #dfeade;
+    --completed-text: #3f6b40;
+    --low-bg: #eeece4;
+    --low-text: #5b5951;
+    --warning-text: #c5442a;
+    --warning-tint: #fbeeea;
+    --positive-text: #4a7c4e;
+
+    --checkbox-border: #cfccbf;
+    --dashed-border: #d8d5c8;
+    --scrollbar-thumb: #d5d2c6;
+    --scrollbar-thumb-hover: #bfbcae;
+
+    --cat-personal: #4a7c4e;
+    --cat-shopping: #cc8a3c;
+    --cat-study: #8a6cb5;
+    --cat-work: #4a6fa5;
+
+    --cal-weekend-bg: #f2f0e8;
+    --cal-other-month-bg: #f7f5ef;
+    --cal-other-month-text: #c4c1b4;
+    --cal-weekday-weekend-text: #bfbcaf;
+    --cal-event-bg: #f7eae2;
+    --cal-event-text: #a04f2d;
+  }
+
+  .theme-claude.dark {
+    --surface: #1f1e1d;
+    --surface-sidebar: #191918;
+    --surface-raised: #262624;
+    --surface-hover-row: #30302e;
+    --surface-hover-nav: #30302e;
+    --border: #3a3a37;
+    --hairline: #33332f;
+    --track: #3a3a37;
+    --tag-bg: #33332f;
+    --notes-bg: #232321;
+
+    --text-1: #faf9f5;
+    --text-2: #d6d3ca;
+    --text-3: #a8a59b;
+    --text-4: #7d7a72;
+    --text-4b: #7d7a72;
+    --text-5: #5c5a54;
+    --text-done: #6b6862;
+
+    --accent: #d97757;
+    --accent-hover: #c2603f;
+    --accent-text: #e2907a;
+    --accent-tint: #3a2a23;
+    --accent-done-fill: #8a5540;
+    --ring-shadow: rgba(226, 144, 122, 0.18);
+    --hero-from: #c2603f;
+    --hero-to: #a34d30;
+
+    --heat-0: #2b2b29;
+    --heat-1: #4a2f24;
+    --heat-2: #6d4230;
+    --heat-3: #a05a3e;
+    --heat-4: #d97757;
+
+    --urgent-bg: #3d211b;
+    --urgent-text: #f0907a;
+    --high-bg: #3a2e18;
+    --high-text: #e3b463;
+    --medium-bg: #1e2a3d;
+    --medium-text: #7fa8e0;
+    --completed-bg: #1c3021;
+    --completed-text: #7fc08a;
+    --low-bg: #2b2b28;
+    --low-text: #cbc8be;
+    --warning-text: #f0907a;
+    --warning-tint: #3d211b;
+    --positive-text: #7fc08a;
+
+    --checkbox-border: #504e48;
+    --dashed-border: #45433e;
+    --scrollbar-thumb: #3f3e3a;
+    --scrollbar-thumb-hover: #55534d;
+
+    --cat-personal: #6fbf7f;
+    --cat-shopping: #e0a252;
+    --cat-study: #b096d9;
+    --cat-work: #7fa8e0;
+
+    --cal-weekend-bg: #232321;
+    --cal-other-month-bg: #1c1c1a;
+    --cal-other-month-text: #56544e;
+    --cal-weekday-weekend-text: #56544e;
+    --cal-event-bg: #3a2a23;
+    --cal-event-text: #e2a98f;
+  }
 }

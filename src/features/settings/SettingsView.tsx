@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Download, ExternalLink, FileSpreadsheet, Upload } from "lucide-react";
 import { format } from "date-fns";
 import type { CloseBehavior, TaskPriority, Theme } from "@/types";
+import { THEMES, THEME_IDS } from "@/lib/themes";
 import { getDb, resetAllData, withDb } from "@/lib/db";
 import { autostartAction } from "@/lib/autostart";
 import { getAllCompletions } from "@/lib/queries/completions";
@@ -109,7 +110,7 @@ const tagSchema = z.object({
 });
 
 const settingsSchema = z.object({
-  theme: z.enum(["Light", "Dark", "System"]),
+  theme: z.enum(THEME_IDS),
   defaultCategoryId: z.string().optional(),
   defaultPriority: z.enum(["Low", "Medium", "High", "Urgent"]),
   defaultReminderMinutesBefore: z.number(),
@@ -312,7 +313,6 @@ async function importData(data: ExportFile): Promise<{ tasks: number; categories
   });
 }
 
-const THEMES: Theme[] = ["Light", "Dark", "System"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
 const REMINDER_DEFAULTS = [
   { value: 0, label: "Disabled" },
@@ -520,8 +520,8 @@ export function SettingsView() {
             </SelectTrigger>
             <SelectContent>
               {THEMES.map((theme) => (
-                <SelectItem key={theme} value={theme}>
-                  {theme}
+                <SelectItem key={theme.id} value={theme.id}>
+                  {theme.id}
                 </SelectItem>
               ))}
             </SelectContent>

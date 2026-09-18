@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AppSettings, Theme } from "@/types";
 import { getSettings, setSetting } from "@/lib/queries/settings";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { PALETTE_CLASSES, resolveTheme } from "@/lib/themes";
 
 interface SettingsStoreState {
   settings: AppSettings;
@@ -23,8 +24,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 function applyTheme(theme: Theme): void {
-  const dark = theme === "Dark" || (theme === "System" && systemDarkQuery.matches);
-  document.documentElement.classList.toggle("dark", dark);
+  const { mode, paletteClass } = resolveTheme(theme);
+  const dark = mode === "dark" || (mode === "system" && systemDarkQuery.matches);
+  const root = document.documentElement;
+  root.classList.toggle("dark", dark);
+  root.classList.remove(...PALETTE_CLASSES);
+  if (paletteClass) root.classList.add(paletteClass);
   // Native Windows title bar follows the OS, not our CSS - tell it explicitly.
   try {
     void getCurrentWindow().setTheme(dark ? "dark" : "light");

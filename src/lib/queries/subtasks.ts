@@ -47,11 +47,25 @@ export async function updateSubtask(
     }
     if (sets.length === 0) return;
 
+    const now = new Date().toISOString();
     sets.push(`updated_at = $${index++}`);
-    values.push(new Date().toISOString());
+    values.push(now);
     values.push(id);
 
-    await getDb().execute(`UPDATE subtasks SET ${sets.join(", ")} WHERE id = $${index}`, values);
+    const db = getDb();
+    await db.execute(`UPDATE subtasks SET ${sets.join(", ")} WHERE id = $${index}`, values);
+
+    if (patch.completed) {
+      // Finishing a step means the task is underway: nudge a still-untouched
+      // parent to "In Progress". Scoped by status so an already In Progress /
+      // Completed / Cancelled task is left alone.
+      await db.execute(
+        `UPDATE tasks SET status = 'In Progress', updated_at = $1
+         WHERE status = 'Not Started'
+           AND id = (SELECT task_id FROM subtasks WHERE id = $2)`,
+        [now, id],
+      );
+    }
   });
 }
 
