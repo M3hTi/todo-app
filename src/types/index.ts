@@ -1,7 +1,8 @@
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Cancelled';
 export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type RecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
-export type Theme = 'Light' | 'Dark' | 'System';
+import type { Theme } from '@/lib/themes';
+export type { Theme };
 export type CloseBehavior = 'ask' | 'tray' | 'quit';
 export type ReminderMode = 'relative' | 'absolute';
 
